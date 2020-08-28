@@ -7316,6 +7316,31 @@ atomic-sleep@^1.0.0:
   resolved "https://registry.npmjs.org/atomic-sleep/-/atomic-sleep-1.0.0.tgz#eb85b77a601fc932cfe432c5acd364a9e2c9075b"
   integrity sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==
 
+autocannon@^4.0.0:
+  version "4.6.0"
+  resolved "https://registry.npmjs.org/autocannon/-/autocannon-4.6.0.tgz#01c18e211444bd523c97da4ff7ff83cd25035333"
+  integrity sha512-pWHEBJh9bkQeDXYj1NL2BBYeXTaLkbRiy3NZ7vNR1bq7vWxHP8R+iCmDyBCtuh2PMJiWlGlikXa1p0LUUY3Tdw==
+  dependencies:
+    chalk "^3.0.0"
+    cli-table3 "^0.5.1"
+    clone "^2.1.2"
+    color-support "^1.1.1"
+    cross-argv "^1.0.0"
+    form-data "^2.5.1"
+    has-async-hooks "^1.0.0"
+    hdr-histogram-js "^1.1.4"
+    hdr-histogram-percentiles-obj "^2.0.0"
+    http-parser-js "^0.5.2"
+    hyperid "^2.0.3"
+    manage-path "^2.0.0"
+    minimist "^1.2.0"
+    on-net-listen "^1.1.1"
+    pretty-bytes "^5.3.0"
+    progress "^2.0.3"
+    reinterval "^1.1.0"
+    retimer "^2.0.0"
+    timestring "^6.0.0"
+
 autolinker@^3.11.0:
   version "3.14.1"
   resolved "https://registry.npmjs.org/autolinker/-/autolinker-3.14.1.tgz#6ae4b812b6eaf42d4d68138b9e67757cbf2bc1e4"
@@ -9565,6 +9590,11 @@ color-string@^1.5.2:
     color-name "^1.0.0"
     simple-swizzle "^0.2.2"
 
+color-support@^1.1.1:
+  version "1.1.3"
+  resolved "https://registry.npmjs.org/color-support/-/color-support-1.1.3.tgz#93834379a1cc9a0c61f82f52f0d04322251bd5a2"
+  integrity sha512-qiBjkpbMLO/HL68y+lh4q0/O1MZFj2RX6X/KmMa3+gJD3z+WwI1ZzDHysvqHGS3mP6mznPckpXmw1nI9cJjyRg==
+
 color@^3.0.0:
   version "3.1.2"
   resolved "https://registry.npmjs.org/color/-/color-3.1.2.tgz#68148e7f85d41ad7649c5fa8c8106f098d229e10"
@@ -10273,6 +10303,11 @@ create-react-context@0.3.0, create-react-context@^0.3.0:
     gud "^1.0.0"
     warning "^4.0.3"
 
+cross-argv@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.npmjs.org/cross-argv/-/cross-argv-1.0.0.tgz#e7221e9ff73092a80496c699c8c45efb20f6486c"
+  integrity sha512-uAVe/bgNHlPdP1VE4Sk08u9pAJ7o1x/tVQtX77T5zlhYhuwOWtVkPBEtHdvF5cq48VzeCG5i1zN4dQc8pwLYrw==
+
 cross-spawn@6.0.5, cross-spawn@^6.0.0, cross-spawn@^6.0.5:
   version "6.0.5"
   resolved "https://registry.npmjs.org/cross-spawn/-/cross-spawn-6.0.5.tgz#4a5ec7c64dfae22c3a14124dbacdee846d80cbc4"
@@ -10870,6 +10905,11 @@ death@^1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/death/-/death-1.1.0.tgz#01aa9c401edd92750514470b8266390c66c67318"
   integrity sha1-AaqcQB7dknUFFEcLgmY5DGbGcxg=
+
+debounce@^1.2.0:
+  version "1.2.0"
+  resolved "https://registry.npmjs.org/debounce/-/debounce-1.2.0.tgz#44a540abc0ea9943018dc0eaa95cce87f65cd131"
+  integrity sha512-mYtLl1xfZLi1m4RtQYlZgJUNQjl4ZxVnHzIR8nLLgi4q1YT8o/WM+MK/f8yfcc9s5Ir5zRaPZyZU6xs1Syoocg==
 
 debug@2.6.9, debug@^2.2.0, debug@^2.3.3, debug@^2.6.0, debug@^2.6.9:
   version "2.6.9"
@@ -15368,6 +15408,18 @@ hyperlinker@^1.0.0:
   resolved "https://registry.npmjs.org/hyperlinker/-/hyperlinker-1.0.0.tgz#23dc9e38a206b208ee49bc2d6c8ef47027df0c0e"
   integrity sha512-Ty8UblRWFEcfSuIaajM34LdPXIhbs1ajEX/BBPv24J+enSVaEVY63xQ6lTO9VRYS5LAoghIG0IDJ+p+IPzKUQQ==
 
+hyperscript-attribute-to-property@^1.0.0:
+  version "1.0.2"
+  resolved "https://registry.npmjs.org/hyperscript-attribute-to-property/-/hyperscript-attribute-to-property-1.0.2.tgz#66ad4164f88beefacf46ec884bd3d1173c1c382a"
+  integrity sha512-oerMul16jZCmrbNsUw8QgrtDzF8lKgFri1bKQjReLw1IhiiNkI59CWuzZjJDGT79UQ1YiWqXhJMv/tRMVqgtkA==
+
+hyperx@^2.5.0:
+  version "2.5.4"
+  resolved "https://registry.npmjs.org/hyperx/-/hyperx-2.5.4.tgz#72b4c3ed4111f64838221a9d0409e6bfc3f78d9e"
+  integrity sha512-iOkSh7Yse7lsN/B9y7OsevLWjeXPqGuHQ5SbwaiJM5xAhWFqhoN6erpK1dQsS12OFU36lyai1pnx1mmzWLQqcA==
+  dependencies:
+    hyperscript-attribute-to-property "^1.0.0"
+
 iconv-lite@0.4.24, iconv-lite@^0.4.24, iconv-lite@^0.4.4:
   version "0.4.24"
   resolved "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz#2022b4b25fbddc21d2f524974a474aafe733908b"
@@ -17983,6 +18035,11 @@ lodash.merge@^4.4.0, lodash.merge@^4.6.1, lodash.merge@^4.6.2:
   resolved "https://registry.npmjs.org/lodash.merge/-/lodash.merge-4.6.2.tgz#558aa53b43b661e1925a0afdfa36a9a1085fe57a"
   integrity sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==
 
+lodash.once@^4.0.0:
+  version "4.1.1"
+  resolved "https://registry.npmjs.org/lodash.once/-/lodash.once-4.1.1.tgz#0dd3971213c7c56df880977d504c88fb471a97ac"
+  integrity sha1-DdOXEhPHxW34gJd9UEyI+0cal6w=
+
 lodash.padstart@^4.6.1:
   version "4.6.1"
   resolved "https://registry.npmjs.org/lodash.padstart/-/lodash.padstart-4.6.1.tgz#d2e3eebff0d9d39ad50f5cbd1b52a7bce6bb611b"
@@ -20260,7 +20317,7 @@ opener@^1.5.1:
   resolved "https://registry.npmjs.org/opener/-/opener-1.5.1.tgz#6d2f0e77f1a0af0032aca716c2c1fbb8e7e8abed"
   integrity sha512-goYSy5c2UXE4Ra1xixabeVh1guIX/ZV/YokJksb6q2lubWu6UbvPQ20p542/sFIll1nl8JnCyK9oBaOcCWXwvA==
 
-opn@^5.2.0, opn@^5.5.0:
+opn@^5.2.0, opn@^5.4.0, opn@^5.5.0:
   version "5.5.0"
   resolved "https://registry.npmjs.org/opn/-/opn-5.5.0.tgz#fc7164fab56d235904c51c3b27da6758ca3b9bfc"
   integrity sha512-PqHpggC9bLV0VeWcdKhkpxY+3JTzetLSqTCWL/z/tFIbI6G8JCjondXklT1JinczLz2Xib62sSp0T/gKT4KksA==
