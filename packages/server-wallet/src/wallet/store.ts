@@ -29,7 +29,7 @@ import knex from '../db/connection';
 import {Bytes32} from '../type-aliases';
 import {validateTransitionWithEVM} from '../evm-validator';
 import config from '../config';
-import {timerFactory} from '../metrics';
+import {timerFactory, syncTimerFactory} from '../metrics';
 
 export type AppHandler<T> = (tx: Transaction, channel: ChannelState) => T;
 export type MissingAppHandler<T> = (channelId: string) => T;
@@ -278,9 +278,11 @@ async function getSigningWallet(
 
 function validateSignatures(signedState: SignedState): void {
   const {participants} = signedState;
-
+  const timer = syncTimerFactory(`  validateSignatures ${calculateChannelId(signedState)}`);
   signedState.signatures.map(sig => {
-    const signerAddress = getSignerAddress(signedState, sig.signature);
+    const signerAddress = timer('getSignerAddress', () =>
+      getSignerAddress(signedState, sig.signature)
+    );
     // We ensure that the signature is valid and verify that the signing address provided on the signature object is correct as well
     const validSignature =
       participants.find(p => p.signingAddress === signerAddress) && sig.signer === signerAddress;
