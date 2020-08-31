@@ -1,3 +1,6 @@
+import {Guid} from 'guid-typescript';
+import * as marky from 'marky';
+
 import walletConfig from './config';
 
 // TODO: We should return a sync and an async timer
@@ -10,10 +13,11 @@ export const syncTimerFactory = (prefix: string) => <T>(label: string, cb: () =>
   timeSync(`${prefix}: ${label}`, cb);
 
 async function time<T>(label: string, cb: () => Promise<T>): Promise<T> {
+  const uniqueLabel = `${Guid.create().toString()}-${label}`;
   if (walletConfig.timingMetrics) {
-    console.time(label);
+    marky.mark(uniqueLabel);
     const result = await cb();
-    console.timeEnd(label);
+    marky.stop(uniqueLabel);
     return result;
   } else {
     return await cb();

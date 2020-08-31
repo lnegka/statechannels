@@ -173,10 +173,10 @@ export class Wallet implements WalletInterface {
       );
     };
     const criticalCode: AppHandler<SingleChannelResult> = async (tx, channel) => {
-      const outcome = deserializeAllocations(allocations);
+      const outcome = await timer('get outcome', async () => deserializeAllocations(allocations));
 
-      const nextState = getOrThrow(
-        UpdateChannel.updateChannel({channelId, appData, outcome}, channel)
+      const nextState = await timer('Get next state', async () =>
+        getOrThrow(UpdateChannel.updateChannel({channelId, appData, outcome}, channel))
       );
       const {outgoing, channelResult} = await timer('signing state', async () =>
         Store.signState(channelId, nextState, tx)

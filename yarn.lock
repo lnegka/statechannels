@@ -18489,6 +18489,11 @@ marksy@^8.0.0:
     he "^1.2.0"
     marked "^0.3.12"
 
+marky@1.2.1:
+  version "1.2.1"
+  resolved "https://registry.npmjs.org/marky/-/marky-1.2.1.tgz#a3fcf82ffd357756b8b8affec9fdbf3a30dc1b02"
+  integrity sha512-md9k+Gxa3qLH6sUKpeC2CNkJK/Ld+bEz5X96nYwloqphQE0CKCVEKco/6jxEZixinqNdz5RFi/KaCyfbMDMAXQ==
+
 matcher-collection@^1.0.0:
   version "1.1.2"
   resolved "https://registry.npmjs.org/matcher-collection/-/matcher-collection-1.1.2.tgz#1076f506f10ca85897b53d14ef54f90a5c426838"

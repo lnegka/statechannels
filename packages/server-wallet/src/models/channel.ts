@@ -110,8 +110,8 @@ export class Channel extends Model implements RequiredColumns {
   static async forId(channelId: Bytes32, tx: Transaction | undefined): Promise<Channel> {
     const result = Channel.query(tx)
       .where({channelId})
-      .withGraphFetched('signingWallet')
-      .withGraphFetched('funding')
+      .withGraphJoined('signingWallet')
+      .withGraphJoined('funding')
       .first();
 
     if (!result) throw new ChannelError(ChannelError.reasons.channelMissing, {channelId});

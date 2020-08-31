@@ -10,7 +10,9 @@
     "@statechannels/wallet-core": "^0.3.4",
     "ethers": "5.0.7",
     "fp-ts": "2.7.0",
+    "guid-typescript": "1.0.9",
     "knex": "0.20.9",
+    "marky": "1.2.1",
     "objection": "2.1.2",
     "pg": "7.17.1",
     "pino": "6.2.0",
@@ -63,7 +65,8 @@
   "resolutions": {
     "broccoli": "3.3.3",
     "ethereum-transaction-debugger": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.0.2.tgz",
-    "scrypt": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.0.2.tgz"
+    "scrypt": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.0.2.tgz",
+    "@types/webgl2": "0.0.5"
   },
   "scripts": {
     "build": "tsc -b .",

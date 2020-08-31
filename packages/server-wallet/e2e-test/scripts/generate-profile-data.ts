@@ -22,11 +22,18 @@ const startReceiver = async (profiling: 'FlameGraph' | 'BubbleProf'): Promise<Re
     const server = exec(
       `npx clinic flame --collect-only -- node ./lib/e2e-test/receiver/server.js`,
       {
+        maxBuffer: 1024 * 1000,
         env: {
           // eslint-disable-next-line
           ...process.env,
           SERVER_DB_NAME: 'receiver',
         },
+      },
+      (error, stdout, stderr) => {
+        if (error) throw error;
+
+        console.log(stdout);
+        console.log(stderr);
       }
     );
     return {
@@ -37,11 +44,18 @@ const startReceiver = async (profiling: 'FlameGraph' | 'BubbleProf'): Promise<Re
     const server = exec(
       `npx clinic bubbleprof --collect-only -- node  ./lib/e2e-test/receiver/server.js`,
       {
+        maxBuffer: 1024 * 1000,
         env: {
           // eslint-disable-next-line
           ...process.env,
           SERVER_DB_NAME: 'receiver',
         },
+      },
+      (error, stdout, stderr) => {
+        if (error) throw error;
+
+        console.log(stdout);
+        console.log(stderr);
       }
     );
 

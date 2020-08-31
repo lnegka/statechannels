@@ -204,7 +204,9 @@ export const Store = {
 
     channelVars = await timer('adding state', async () => addState(channelVars, signedState));
 
-    channelVars = clearOldStates(channelVars, channel.isSupported ? channel.support : undefined);
+    channelVars = await timer('clear old states', async () =>
+      clearOldStates(channelVars, channel.isSupported ? channel.support : undefined)
+    );
 
     await timer('validating invariants', async () =>
       validateInvariants(channelVars, channel.myAddress)
@@ -278,7 +280,7 @@ async function getSigningWallet(
 
 function validateSignatures(signedState: SignedState): void {
   const {participants} = signedState;
-  const timer = syncTimerFactory(`  validateSignatures ${calculateChannelId(signedState)}`);
+  const timer = syncTimerFactory(`validateSignatures ${calculateChannelId(signedState)}`);
   signedState.signatures.map(sig => {
     const signerAddress = timer('getSignerAddress', () =>
       fastRecoverAddress(signedState, sig.signature)
