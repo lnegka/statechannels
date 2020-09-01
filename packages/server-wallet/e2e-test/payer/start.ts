@@ -30,6 +30,10 @@ export default {
         type: 'number',
         default: 1,
       })
+      .option('receiverPort', {
+        type: 'string',
+        default: '65535',
+      })
       .coerce('channels', (channels: number[]): string[] =>
         channels.map(channel => channel.toString(16))
       )
@@ -39,12 +43,12 @@ export default {
       ),
 
   handler: async (argv: {[key: string]: any} & Argv['argv']): Promise<void> => {
-    const {database, numPayments, channels} = argv;
+    const {database, numPayments, channels, receiverPort} = argv;
 
     const knex = Knex(_.merge(dbConfig, {connection: {database}}));
     Model.knex(knex);
 
-    const payerClient = new PayerClient(alice().privateKey, `http://127.0.0.1:65535`);
+    const payerClient = new PayerClient(alice().privateKey, `http://127.0.0.1:${receiverPort}`);
 
     const performanceTimer = new PerformanceTimer(channels || [], numPayments);
     await Promise.all(

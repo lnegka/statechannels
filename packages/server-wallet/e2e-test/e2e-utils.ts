@@ -1,4 +1,4 @@
-import {ChildProcessWithoutNullStreams, ChildProcess, fork, spawn} from 'child_process';
+import {ChildProcess, fork} from 'child_process';
 import {join} from 'path';
 
 import kill = require('tree-kill');
@@ -18,7 +18,7 @@ import {PerformanceTimer} from './payer/timers';
 
 export type ReceiverServer = {
   url: string;
-  server: ChildProcessWithoutNullStreams | ChildProcess;
+  server: ChildProcess;
   db: Knex;
 };
 
@@ -47,18 +47,17 @@ export const triggerPayments = async (
  * conveniently re-using the same PostgreSQL instance.
  */
 export const startReceiverServer = (dbName = 'receiver'): ReceiverServer => {
-  const server = spawn('yarn', ['ts-node', './e2e-test/receiver/server'], {
-    stdio: 'pipe',
+  const server = fork(join(__dirname, './receiver/server.ts'), ['start'], {
+    execArgv: ['-r', 'ts-node/register'],
     env: {
       // eslint-disable-next-line
-      ...process.env,
+            ...process.env,
       SERVER_DB_NAME: dbName,
     },
   });
 
   server.on('error', data => console.error(data.toString()));
-  server.stdout.on('data', data => console.log(data.toString()));
-  server.stderr.on('data', data => console.error(data.toString()));
+  server.on('data', data => console.log(data.toString()));
 
   const db = knexConnector(dbName);
 
