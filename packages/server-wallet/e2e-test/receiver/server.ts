@@ -12,7 +12,7 @@ const start = {
     yargs
       .option('port', {
         type: 'number',
-        default: '65535',
+        demand: true,
       })
       .example('receiver --port 654321', 'Start a receiver server'),
 

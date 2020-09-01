@@ -2,11 +2,11 @@ import {ChildProcess, fork} from 'child_process';
 import {join} from 'path';
 
 import kill = require('tree-kill');
-
-import Knex = require('knex');
+import axios from 'axios';
+import Knex from 'knex';
+import _ from 'lodash';
 import {Participant, makeDestination} from '@statechannels/wallet-core';
 import {Wallet} from 'ethers';
-import axios from 'axios';
 
 import {dbConfig} from '../src/db/config';
 import {withSupportedState} from '../src/models/__test__/fixtures/channel';
@@ -47,15 +47,24 @@ export const triggerPayments = async (
  * which indicates that Payer and Receiver use separate databases, despite
  * conveniently re-using the same PostgreSQL instance.
  */
-export const startReceiverServer = (dbName = 'receiver'): ReceiverServer => {
-  const server = fork(join(__dirname, './receiver/server.ts'), ['start'], {
-    execArgv: ['-r', 'ts-node/register'],
-    env: {
-      // eslint-disable-next-line
+export const startReceiverServer = (
+  opts: Partial<{dbName: string; port: number}> = {}
+): ReceiverServer => {
+  const defaults = {dbName: 'receiver', port: 65535};
+  const {dbName, port} = _.merge(defaults, opts);
+
+  const server = fork(
+    join(__dirname, './receiver/server.ts'),
+    ['start', '--port', port.toString()],
+    {
+      execArgv: ['-r', 'ts-node/register'],
+      env: {
+        // eslint-disable-next-line
             ...process.env,
-      SERVER_DB_NAME: dbName,
-    },
-  });
+        SERVER_DB_NAME: dbName,
+      },
+    }
+  );
 
   server.on('error', data => console.error(data.toString()));
   server.on('data', data => console.log(data.toString()));
