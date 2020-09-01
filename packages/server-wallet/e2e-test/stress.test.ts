@@ -1,3 +1,5 @@
+import Knex from 'knex';
+
 import {Channel} from '../src/models/channel';
 import {SigningWallet} from '../src/models/signing-wallet';
 import knexPayer from '../src/db/connection';
@@ -8,7 +10,6 @@ import {
   ReceiverServer,
   waitForServerToStart,
   startReceiverServer,
-  knexReceiver,
   killServer,
   triggerPayments,
   seedTestChannels,
@@ -27,6 +28,7 @@ let ChannelPayer: typeof Channel;
 let ChannelReceiver: typeof Channel;
 let SWPayer: typeof SigningWallet;
 let SWReceiver: typeof SigningWallet;
+let knexReceiver: Knex;
 
 jest.setTimeout(300_000); // 5 min  since stress tests take a long time
 
@@ -35,6 +37,7 @@ describe('Stress tests', () => {
   beforeAll(async () => {
     receiverServer = await startReceiverServer();
     await waitForServerToStart(receiverServer);
+    knexReceiver = receiverServer.db;
 
     [ChannelPayer, ChannelReceiver] = [knexPayer, knexReceiver].map(knex => Channel.bindKnex(knex));
     [SWPayer, SWReceiver] = [knexPayer, knexReceiver].map(knex => SigningWallet.bindKnex(knex));
@@ -55,7 +58,8 @@ describe('Stress tests', () => {
       getParticipant('receiver', bob().privateKey),
       bob().privateKey,
       100,
-      knexPayer
+      knexPayer,
+      receiverServer.db
     );
 
     await triggerPayments(channelIds);
@@ -73,7 +77,8 @@ describe('Stress tests', () => {
       getParticipant('receiver', bob().privateKey),
       bob().privateKey,
       100,
-      knexPayer
+      knexPayer,
+      receiverServer.db
     );
     const numPayments = 25;
     await triggerPayments(channelIds, numPayments);

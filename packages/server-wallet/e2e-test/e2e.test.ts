@@ -1,4 +1,5 @@
 import {Participant} from '@statechannels/client-api-schema';
+import Knex from 'knex';
 
 import {alice, bob} from '../src/wallet/__test__/fixtures/signing-wallets';
 import {alice as aliceP, bob as bobP} from '../src/wallet/__test__/fixtures/participants';
@@ -14,7 +15,6 @@ import {
   killServer,
   waitForServerToStart,
   ReceiverServer,
-  knexReceiver,
   startReceiverServer,
   triggerPayments,
 } from './e2e-utils';
@@ -27,10 +27,12 @@ let SWPayer: typeof SigningWallet;
 let SWReceiver: typeof SigningWallet;
 
 let receiverServer: ReceiverServer;
+let knexReceiver: Knex;
 
 beforeAll(async () => {
   receiverServer = startReceiverServer();
   await waitForServerToStart(receiverServer);
+  knexReceiver = receiverServer.db;
 
   [ChannelPayer, ChannelReceiver] = [knexPayer, knexReceiver].map(knex => Channel.bindKnex(knex));
   [SWPayer, SWReceiver] = [knexPayer, knexReceiver].map(knex => SigningWallet.bindKnex(knex));

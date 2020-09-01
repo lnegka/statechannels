@@ -19,6 +19,7 @@ import {PerformanceTimer} from './payer/timers';
 export type ReceiverServer = {
   url: string;
   server: ChildProcessWithoutNullStreams | ChildProcess;
+  db: Knex;
 };
 
 export const triggerPayments = async (
@@ -45,13 +46,13 @@ export const triggerPayments = async (
  * which indicates that Payer and Receiver use separate databases, despite
  * conveniently re-using the same PostgreSQL instance.
  */
-export const startReceiverServer = (): ReceiverServer => {
+export const startReceiverServer = (dbName = 'receiver'): ReceiverServer => {
   const server = spawn('yarn', ['ts-node', './e2e-test/receiver/server'], {
     stdio: 'pipe',
     env: {
       // eslint-disable-next-line
       ...process.env,
-      SERVER_DB_NAME: 'receiver',
+      SERVER_DB_NAME: dbName,
     },
   });
 
@@ -59,9 +60,12 @@ export const startReceiverServer = (): ReceiverServer => {
   server.stdout.on('data', data => console.log(data.toString()));
   server.stderr.on('data', data => console.error(data.toString()));
 
+  const db = knexConnector(dbName);
+
   return {
     server,
     url: `http://127.0.0.1:65535`,
+    db,
   };
 };
 
@@ -86,18 +90,19 @@ export const waitForServerToStart = (
     }, pingInterval);
   });
 
-export const knexReceiver: Knex = Knex({
-  ...dbConfig,
-  connection: {
-    ...(dbConfig.connection as Knex.StaticConnectionConfig),
-    database: 'receiver',
-  },
-});
+export const knexConnector = (database: string): Knex =>
+  Knex({
+    ...dbConfig,
+    connection: {
+      ...(dbConfig.connection as Knex.StaticConnectionConfig),
+      database,
+    },
+  });
 
-export const killServer = async ({server}: ReceiverServer): Promise<void> => {
+export const killServer = async ({server, db}: ReceiverServer): Promise<void> => {
   kill(server.pid);
 
-  await knexReceiver.destroy();
+  await db.destroy();
 };
 
 export async function seedTestChannels(
@@ -106,7 +111,8 @@ export async function seedTestChannels(
   receiver: Participant,
   receiverPrivateKey: string,
   numOfChannels: number,
-  knexPayer: Knex
+  knexPayer: Knex,
+  knexReceiver: Knex
 ): Promise<string[]> {
   const channelIds: string[] = [];
   for (let i = 0; i < numOfChannels; i++) {
