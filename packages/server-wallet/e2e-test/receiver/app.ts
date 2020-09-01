@@ -13,7 +13,7 @@ const app = express();
 
 app.use(pino({logger: logger as any}));
 
-app.post('/status', (_req, res) => res.status(200).send('OK'));
+app.get('/status', (_req, res) => res.status(200).send('OK'));
 
 app.get('/participant', (_req, res) =>
   res

@@ -33,6 +33,7 @@ export const triggerPayments = async (
   const payerScript = fork(join(__dirname, './payer/index.ts'), args, {
     execArgv: ['-r', 'ts-node/register'],
   });
+
   payerScript.on('message', message =>
     console.log(PerformanceTimer.formatResults(JSON.parse(message as any)))
   );
@@ -80,7 +81,7 @@ export const waitForServerToStart = (
   new Promise(resolve => {
     const interval = setInterval(async () => {
       try {
-        await axios.post<'OK'>(`${receiverServer.url}/status`);
+        await axios.get<'OK'>(`${receiverServer.url}/status`);
         clearInterval(interval);
         resolve();
       } catch {
