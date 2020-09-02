@@ -293,6 +293,9 @@ jobs:
           working_directory: packages/server-wallet
           command: yarn test:stress
           no_output_timeout: 10m
+      - run:
+          command: |
+            cp /home/circleci/project/packages/server-wallet/metrics.log  /home/circleci/project/artifacts
       - upload_artifacts
 
   server-wallet-profiling:
