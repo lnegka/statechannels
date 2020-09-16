@@ -1,6 +1,7 @@
 import {instantiateSecp256k1, Secp256k1, RecoveryId} from '@bitauth/libauth';
 import {utils, Wallet} from 'ethers';
 import {State, calculateChannelId, StateWithHash} from '@statechannels/wallet-core';
+import eu from 'ethereumjs-util';
 
 let secp256k1: Secp256k1;
 export const initialized: Promise<any> = instantiateSecp256k1().then(m => (secp256k1 = m));
@@ -28,13 +29,19 @@ export function fastRecoverAddress(state: State, signature: string, stateHash: s
   const recover = Number.parseInt('0x' + signature.slice(-2)) - 27;
 
   const digest = Buffer.from(hashMessage(stateHash).substr(2), 'hex');
-  const recoveredAddress = utils.computeAddress(
-    secp256k1.recoverPublicKeyCompressed(
-      Buffer.from(signature.slice(2, -2), 'hex'),
-      recover as RecoveryId,
-      digest
-    )
-  );
+  const recoveredAddress =
+    '0x' +
+    eu
+      .publicToAddress(
+        Buffer.from(
+          secp256k1.recoverPublicKeyCompressed(
+            Buffer.from(signature.slice(2, -2), 'hex'),
+            recover as RecoveryId,
+            digest
+          )
+        )
+      )
+      .toString('hex');
 
   const {participants} = state;
 

@@ -9,6 +9,7 @@
     "@statechannels/nitro-protocol": "^0.3.6",
     "@statechannels/wallet-core": "^0.3.6",
     "ethers": "5.0.12",
+    "ethereumjs-util": "^7.0.5",
     "fp-ts": "2.7.0",
     "knex": "0.20.9",
     "objection": "2.1.2",
