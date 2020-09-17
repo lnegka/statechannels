@@ -2,8 +2,8 @@
  * This should be the only file that reads from the environment.
  */
 
-import {Config} from 'knex';
-import {knexSnakeCaseMappers} from 'objection';
+import { Config } from 'knex';
+import { knexSnakeCaseMappers } from 'objection';
 
 export interface ServerWalletConfig {
   nodeEnv?: 'test' | 'development' | 'production';
@@ -57,7 +57,7 @@ export function extractDBConfigFromServerWalletConfig(
 ): Config {
   return {
     client: 'postgres',
-    connection: serverWalletConfig.postgresDatabaseUrl || {
+    connection: {
       host: serverWalletConfig.postgresHost,
       port: Number(serverWalletConfig.postgresPort),
       database: serverWalletConfig.postgresDBName,

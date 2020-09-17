@@ -21,7 +21,8 @@ async function benchmark(): Promise<void> {
     challengeDuration: 0x5,
   };
   const stateWithHash = addHash(state);
-  const iter = _.range(10_000);
+  const iter = _.range(100000);
+
   const manager = new WorkerManager();
   // warm up the threads
   await Promise.all(
