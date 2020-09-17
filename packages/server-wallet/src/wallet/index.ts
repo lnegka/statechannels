@@ -1,4 +1,4 @@
-import {deserializeAllocations} from '@statechannels/wallet-core/lib/src/serde/app-messages/deserialize';
+import { deserializeAllocations } from '@statechannels/wallet-core/lib/src/serde/app-messages/deserialize';
 import {
   UpdateChannelParams,
   CreateChannelParams,
@@ -23,36 +23,36 @@ import {
   Zero,
 } from '@statechannels/wallet-core';
 import * as Either from 'fp-ts/lib/Either';
-import {ETH_ASSET_HOLDER_ADDRESS} from '@statechannels/wallet-core/lib/src/config';
+import { ETH_ASSET_HOLDER_ADDRESS } from '@statechannels/wallet-core/lib/src/config';
 import Knex from 'knex';
-import {Transaction} from 'objection';
+import { Transaction } from 'objection';
 
-import {Bytes32, Uint256} from '../type-aliases';
-import {Channel} from '../models/channel';
-import {Nonce} from '../models/nonce';
-import {Outgoing, ProtocolAction, isOutgoing} from '../protocols/actions';
-import {SigningWallet} from '../models/signing-wallet';
-import {logger} from '../logger';
+import { Bytes32, Uint256 } from '../type-aliases';
+import { Channel } from '../models/channel';
+import { Nonce } from '../models/nonce';
+import { Outgoing, ProtocolAction, isOutgoing } from '../protocols/actions';
+import { SigningWallet } from '../models/signing-wallet';
+import { logger } from '../logger';
 import * as Application from '../protocols/application';
 import * as UpdateChannel from '../handlers/update-channel';
 import * as CloseChannel from '../handlers/close-channel';
 import * as JoinChannel from '../handlers/join-channel';
 import * as ChannelState from '../protocols/state';
-import {isWalletError} from '../errors/wallet-error';
-import {Funding} from '../models/funding';
-import {OnchainServiceInterface} from '../onchain-service';
-import {timerFactory, recordFunctionMetrics, setupMetrics} from '../metrics';
-import {ServerWalletConfig, extractDBConfigFromServerWalletConfig} from '../config';
+import { isWalletError } from '../errors/wallet-error';
+import { Funding } from '../models/funding';
+import { OnchainServiceInterface } from '../onchain-service';
+import { timerFactory, recordFunctionMetrics, setupMetrics } from '../metrics';
+import { ServerWalletConfig, extractDBConfigFromServerWalletConfig, defaultConfig } from '../config';
 
-import {Store, AppHandler, MissingAppHandler} from './store';
+import { Store, AppHandler, MissingAppHandler } from './store';
 
-export {CreateChannelParams};
+export { CreateChannelParams };
 
 // TODO: The client-api does not currently allow for outgoing messages to be
 // declared as the result of a wallet API call.
 // Nor does it allow for multiple channel results
-type SingleChannelResult = Promise<{outbox: Outgoing[]; channelResult: ChannelResult}>;
-type MultipleChannelResult = Promise<{outbox: Outgoing[]; channelResults: ChannelResult[]}>;
+type SingleChannelResult = Promise<{ outbox: Outgoing[]; channelResult: ChannelResult }>;
+type MultipleChannelResult = Promise<{ outbox: Outgoing[]; channelResults: ChannelResult[] }>;
 
 export interface UpdateChannelFundingParams {
   channelId: ChannelId;
@@ -60,7 +60,7 @@ export interface UpdateChannelFundingParams {
   amount: Uint256;
 }
 
-type SyncChannelParams = {channelId: ChannelId};
+type SyncChannelParams = { channelId: ChannelId };
 
 export type WalletInterface = {
   // App utilities
@@ -81,7 +81,7 @@ export type WalletInterface = {
   pushMessage(m: Message): MultipleChannelResult;
 
   // Wallet -> App communication
-  onNotification(cb: (notice: StateChannelsNotification) => void): {unsubscribe: () => void};
+  onNotification(cb: (notice: StateChannelsNotification) => void): { unsubscribe: () => void };
 
   // Register chain <-> Wallet communication
   attachChainService(provider: OnchainServiceInterface): void;
@@ -90,9 +90,11 @@ export type WalletInterface = {
 export class Wallet implements WalletInterface {
   knex: Knex;
   store: Store;
-  constructor(readonly walletConfig: ServerWalletConfig) {
-    this.knex = Knex(extractDBConfigFromServerWalletConfig(walletConfig));
-    this.store = new Store(walletConfig.timingMetrics, walletConfig.skipEvmValidation);
+  readonly walletConfig: ServerWalletConfig;
+  constructor(walletConfig: ServerWalletConfig) {
+    this.walletConfig = walletConfig || defaultConfig;
+    this.knex = Knex(extractDBConfigFromServerWalletConfig(this.walletConfig));
+    this.store = new Store(this.walletConfig.timingMetrics, this.walletConfig.skipEvmValidation);
     // Bind methods to class instance
     this.getParticipant = this.getParticipant.bind(this);
     this.updateChannelFunding = this.updateChannelFunding.bind(this);
@@ -107,11 +109,11 @@ export class Wallet implements WalletInterface {
     this.takeActions = this.takeActions.bind(this);
 
     // set up timing metrics
-    if (walletConfig.timingMetrics) {
-      if (!walletConfig.metricsOutputFile) {
+    if (this.walletConfig.timingMetrics) {
+      if (!this.walletConfig.metricsOutputFile) {
         throw Error('You must define a metrics output file');
       }
-      setupMetrics(this.knex, walletConfig.metricsOutputFile);
+      setupMetrics(this.knex, this.walletConfig.metricsOutputFile);
     }
   }
 
@@ -119,10 +121,10 @@ export class Wallet implements WalletInterface {
     await this.knex.destroy();
   }
 
-  public async syncChannel({channelId}: SyncChannelParams): SingleChannelResult {
-    const {states, channelState} = await this.store.getStates(channelId, this.knex);
+  public async syncChannel({ channelId }: SyncChannelParams): SingleChannelResult {
+    const { states, channelState } = await this.store.getStates(channelId, this.knex);
 
-    const {participants, myIndex} = channelState;
+    const { participants, myIndex } = channelState;
 
     const peers = participants.map(p => p.participantId).filter((_, idx) => idx !== myIndex);
     const sender = participants[myIndex].participantId;
@@ -135,7 +137,7 @@ export class Wallet implements WalletInterface {
           sender,
           data: {
             signedStates: states,
-            requests: [{type: 'GetChannel', channelId}],
+            requests: [{ type: 'GetChannel', channelId }],
           },
         },
       })),
@@ -165,9 +167,9 @@ export class Wallet implements WalletInterface {
 
     await Funding.updateFunding(this.knex, channelId, BN.from(amount), assetHolder);
 
-    const {channelResults, outbox} = await this.takeActions([channelId]);
+    const { channelResults, outbox } = await this.takeActions([channelId]);
 
-    return {outbox, channelResult: channelResults[0]};
+    return { outbox, channelResult: channelResults[0] };
   }
 
   public async getSigningAddress(): Promise<string> {
@@ -175,7 +177,7 @@ export class Wallet implements WalletInterface {
   }
 
   async createChannel(args: CreateChannelParams): SingleChannelResult {
-    const {participants, appDefinition, appData, allocations} = args;
+    const { participants, appDefinition, appData, allocations } = args;
     const outcome: Outcome = deserializeAllocations(allocations);
 
     const channelNonce = await Nonce.next(
@@ -197,11 +199,11 @@ export class Wallet implements WalletInterface {
       // TODO: How do we pick a signing address?
       const signingAddress = (await SigningWallet.query(tx).first())?.address;
 
-      const cols = {...channelConstants, vars, signingAddress};
+      const cols = { ...channelConstants, vars, signingAddress };
 
-      const {channelId} = await Channel.query(tx).insert(cols);
+      const { channelId } = await Channel.query(tx).insert(cols);
 
-      const {outgoing, channelResult} = await this.store.signState(
+      const { outgoing, channelResult } = await this.store.signState(
         channelId,
         {
           ...channelConstants,
@@ -213,16 +215,16 @@ export class Wallet implements WalletInterface {
         tx
       );
 
-      return {outbox: outgoing.map(n => n.notice), channelResult};
+      return { outbox: outgoing.map(n => n.notice), channelResult };
     };
     return this.knex.transaction(callback);
   }
 
-  async joinChannel({channelId}: JoinChannelParams): SingleChannelResult {
+  async joinChannel({ channelId }: JoinChannelParams): SingleChannelResult {
     const criticalCode: AppHandler<SingleChannelResult> = async (tx, channel) => {
-      const nextState = getOrThrow(JoinChannel.joinChannel({channelId}, channel));
-      const {outgoing, channelResult} = await this.store.signState(channelId, nextState, tx);
-      return {outbox: outgoing.map(n => n.notice), channelResult};
+      const nextState = getOrThrow(JoinChannel.joinChannel({ channelId }, channel));
+      const { outgoing, channelResult } = await this.store.signState(channelId, nextState, tx);
+      return { outbox: outgoing.map(n => n.notice), channelResult };
     };
 
     const handleMissingChannel: MissingAppHandler<SingleChannelResult> = () => {
@@ -231,24 +233,24 @@ export class Wallet implements WalletInterface {
       });
     };
 
-    const {outbox, channelResult} = await this.store.lockApp(
+    const { outbox, channelResult } = await this.store.lockApp(
       this.knex,
       channelId,
       criticalCode,
       handleMissingChannel
     );
-    const {outbox: nextOutbox, channelResults} = await this.takeActions([channelId]);
+    const { outbox: nextOutbox, channelResults } = await this.takeActions([channelId]);
     const nextChannelResult = channelResults.find(c => c.channelId === channelId) || channelResult;
 
-    return {outbox: outbox.concat(nextOutbox), channelResult: nextChannelResult};
+    return { outbox: outbox.concat(nextOutbox), channelResult: nextChannelResult };
   }
 
-  async updateChannel({channelId, allocations, appData}: UpdateChannelParams): SingleChannelResult {
+  async updateChannel({ channelId, allocations, appData }: UpdateChannelParams): SingleChannelResult {
     const timer = timerFactory(this.walletConfig.timingMetrics, `updateChannel ${channelId}`);
     const handleMissingChannel: MissingAppHandler<SingleChannelResult> = () => {
       throw new UpdateChannel.UpdateChannelError(
         UpdateChannel.UpdateChannelError.reasons.channelNotFound,
-        {channelId}
+        { channelId }
       );
     };
     const criticalCode: AppHandler<SingleChannelResult> = async (tx, channel) => {
@@ -259,32 +261,32 @@ export class Wallet implements WalletInterface {
 
       const nextState = getOrThrow(
         recordFunctionMetrics(
-          UpdateChannel.updateChannel({channelId, appData, outcome}, channel),
+          UpdateChannel.updateChannel({ channelId, appData, outcome }, channel),
           this.walletConfig.timingMetrics
         )
       );
-      const {outgoing, channelResult} = await timer('signing state', async () =>
+      const { outgoing, channelResult } = await timer('signing state', async () =>
         this.store.signState(channelId, nextState, tx)
       );
 
-      return {outbox: outgoing.map(n => n.notice), channelResult};
+      return { outbox: outgoing.map(n => n.notice), channelResult };
     };
 
     return this.store.lockApp(this.knex, channelId, criticalCode, handleMissingChannel);
   }
 
-  async closeChannel({channelId}: CloseChannelParams): SingleChannelResult {
+  async closeChannel({ channelId }: CloseChannelParams): SingleChannelResult {
     const handleMissingChannel: MissingAppHandler<SingleChannelResult> = () => {
       throw new CloseChannel.CloseChannelError(
         CloseChannel.CloseChannelError.reasons.channelMissing,
-        {channelId}
+        { channelId }
       );
     };
     const criticalCode: AppHandler<SingleChannelResult> = async (tx, channel) => {
       const nextState = getOrThrow(CloseChannel.closeChannel(channel));
-      const {outgoing, channelResult} = await this.store.signState(channelId, nextState, tx);
+      const { outgoing, channelResult } = await this.store.signState(channelId, nextState, tx);
 
-      return {outbox: outgoing.map(n => n.notice), channelResult};
+      return { outbox: outgoing.map(n => n.notice), channelResult };
     };
 
     return this.store.lockApp(this.knex, channelId, criticalCode, handleMissingChannel);
@@ -298,16 +300,16 @@ export class Wallet implements WalletInterface {
     };
   }
 
-  async getState({channelId}: GetStateParams): SingleChannelResult {
+  async getState({ channelId }: GetStateParams): SingleChannelResult {
     try {
-      const {channelResult} = await Channel.forId(channelId, this.knex);
+      const { channelResult } = await Channel.forId(channelId, this.knex);
 
       return {
         channelResult,
         outbox: [],
       };
     } catch (err) {
-      logger.error({err}, 'Could not get channel');
+      logger.error({ err }, 'Could not get channel');
       throw err; // FIXME: Wallet shoudl return ChannelNotFound
     }
   }
@@ -318,13 +320,13 @@ export class Wallet implements WalletInterface {
 
     // TODO: Move into utility somewhere?
     function handleRequest(outbox: Outgoing[]): (req: ChannelRequest) => Promise<void> {
-      return async ({channelId}: ChannelRequest): Promise<void> => {
-        const {states: signedStates, channelState} = await store.getStates(channelId, knex);
+      return async ({ channelId }: ChannelRequest): Promise<void> => {
+        const { states: signedStates, channelState } = await store.getStates(channelId, knex);
 
-        const {participants, myIndex} = channelState;
+        const { participants, myIndex } = channelState;
 
         const peers = participants.map(p => p.participantId).filter((_, idx) => idx !== myIndex);
-        const {participantId: sender} = participants[myIndex];
+        const { participantId: sender } = participants[myIndex];
 
         peers.map(recipient => {
           outbox.push({
@@ -332,7 +334,7 @@ export class Wallet implements WalletInterface {
             params: {
               recipient,
               sender,
-              data: {signedStates},
+              data: { signedStates },
             },
           });
         });
@@ -343,16 +345,16 @@ export class Wallet implements WalletInterface {
       return await this.store.pushMessage(message, tx);
     });
 
-    const {channelResults, outbox} = await this.takeActions(channelIds);
+    const { channelResults, outbox } = await this.takeActions(channelIds);
 
     if (message.requests && message.requests.length > 0)
       // Modifies outbox, may append new messages
       await Promise.all(message.requests.map(handleRequest(outbox)));
 
-    return {outbox, channelResults};
+    return { outbox, channelResults };
   }
 
-  onNotification(_cb: (notice: StateChannelsNotification) => void): {unsubscribe: () => void} {
+  onNotification(_cb: (notice: StateChannelsNotification) => void): { unsubscribe: () => void } {
     throw 'Unimplemented';
   }
 
@@ -389,7 +391,7 @@ export class Wallet implements WalletInterface {
         const doAction = async (action: ProtocolAction): Promise<any> => {
           switch (action.type) {
             case 'SignState': {
-              const {outgoing} = await this.store.signState(action.channelId, action, tx);
+              const { outgoing } = await this.store.signState(action.channelId, action, tx);
               outgoing.map(n => outbox.push(n.notice));
               return;
             }
@@ -399,7 +401,7 @@ export class Wallet implements WalletInterface {
         };
 
         const nextAction = recordFunctionMetrics(
-          Application.protocol({app}),
+          Application.protocol({ app }),
           this.walletConfig.timingMetrics
         );
 
@@ -411,14 +413,14 @@ export class Wallet implements WalletInterface {
           try {
             await doAction(nextAction);
           } catch (err) {
-            logger.error({err}, 'Error handling action');
+            logger.error({ err }, 'Error handling action');
             await setError(err);
           }
         }
       });
     }
 
-    return {outbox, error, channelResults};
+    return { outbox, error, channelResults };
   };
 }
 
