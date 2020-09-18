@@ -1,10 +1,11 @@
-import {parentPort, isMainThread} from 'worker_threads';
+import { parentPort, isMainThread, threadId } from 'worker_threads';
 
-import {hashState} from '@statechannels/wallet-core';
+import { hashState } from '@statechannels/wallet-core';
 
-import {fastRecoverAddress, fastSignState} from '../signatures';
+import { fastRecoverAddress, fastSignState } from '../signatures';
 
-import {isStateChannelWorkerData} from './worker-message';
+import { isStateChannelWorkerData } from './worker-message';
+import { logger } from '../../logger';
 
 parentPort?.on('message', async (message: any) => {
   if (isMainThread) {
@@ -24,6 +25,7 @@ parentPort?.on('message', async (message: any) => {
       );
       break;
     case 'SignState':
+      logger.info({ nonce: message.state.channelNonce, threadId });
       parentPort?.postMessage(await fastSignState(message.state, message.privateKey));
   }
 });
