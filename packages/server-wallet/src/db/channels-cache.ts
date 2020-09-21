@@ -22,10 +22,10 @@ class ChannelManagementAPI {
     const tx = await knex.transaction();
     const result = await tx.raw(
       `
-    SELECT channel_id FROM ??
-    WHERE updated_at < now() - interval '10 seconds'
-    AND turn_number % 2 = 0;
-    `,
+        SELECT channel_id FROM ??
+        WHERE updated_at < now() - interval '10 seconds'
+        AND turn_number % 2 = 0;
+      `,
       [TABLE]
     );
 
@@ -37,7 +37,6 @@ class PaymentChannelAccessAPI {
   static async acquirePaymentChannel(
     group_id: string
   ): Promise<{channelId: string; turnNumber: number; tx: Transaction}> {
-    let key: string;
     const tx = await knex.transaction();
 
     const result = (
@@ -78,6 +77,7 @@ class PaymentChannelAccessAPI {
     );
     await tx.commit();
   }
+
   static async submitReceipt(channelId: string, turnNum: number): Promise<void> {
     return knex.raw(
       `
