@@ -1,5 +1,6 @@
 import {ethers} from 'ethers';
 import Knex, {Transaction} from 'knex';
+import _ from 'lodash';
 
 import {defaultConfig, extractDBConfigFromServerWalletConfig} from '../config';
 const knex = Knex(extractDBConfigFromServerWalletConfig(defaultConfig));
@@ -101,6 +102,12 @@ async function run(): Promise<void> {
   );
 
   console.log(`got ${channelId} for group 5. Expected ${newInsert}`);
+
+  const group3 = 'group-3';
+  const acquiredChannels = await Promise.all(_.range(4).map(async () => acquireAndHold(group3, 1)));
+
+  console.log(`acquired ${acquiredChannels} for group 3`);
+  await ChannelManagementAPI.putChannel(newInsert, group5, 5);
 }
 
 run()
