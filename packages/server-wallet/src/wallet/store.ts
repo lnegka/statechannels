@@ -37,6 +37,7 @@ import {validateTransitionWithEVM} from '../evm-validator';
 import {timerFactory, recordFunctionMetrics} from '../metrics';
 import {fastRecoverAddress} from '../utilities/signatures';
 import {pick} from '../utilities/helpers';
+import {LedgerChannel} from '../models/ledger-channel';
 
 export type AppHandler<T> = (tx: Transaction, channel: ChannelState) => T;
 export type MissingAppHandler<T> = (channelId: string) => T;
@@ -360,6 +361,11 @@ async function createChannel(
     ...CHANNEL_COLUMNS
   );
   const channel = Channel.fromJson(cols);
+
+  // TODO if a ledger channel (i.e. a null app, appDefinition is null):
+  // Use a transaction and insert into both tables? And also insert a new relation?
+  // or do  something like return await Channel.relatedQuery('ledgerChannelId').insert(channel); (not sure if this is right)
+
   return await Channel.query(txOrKnex)
     .insert(channel)
     .returning('*')
