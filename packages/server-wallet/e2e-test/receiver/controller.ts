@@ -9,6 +9,9 @@ import {receiverConfig} from '../e2e-utils';
 import {defaultConfig} from '../../src/config';
 
 export default class ReceiverController {
+  constructor() {
+    console.log('controller called');
+  }
   private readonly wallet: Wallet = recordFunctionMetrics(
     new Wallet(receiverConfig),
     defaultConfig.timingMetrics

@@ -6,6 +6,7 @@ import {State, StateWithHash} from '@statechannels/wallet-core';
 import {UpdateChannelParams} from '@statechannels/client-api-schema';
 import {Either} from 'fp-ts/lib/Either';
 import {isLeft} from 'fp-ts/lib/These';
+import _ from 'lodash';
 
 import {MultipleChannelResult, SingleChannelResult} from '../../wallet';
 import {ServerWalletConfig} from '../../config';
@@ -15,15 +16,19 @@ import {StateChannelWorkerData} from './worker-data';
 const ONE_DAY = 86400000;
 export class WorkerManager {
   private pool?: Pool<Worker>;
+  private threadAmount: number;
 
   constructor(walletConfig: ServerWalletConfig) {
+    // throw new Error('gimme dat stack');
+    console.log('manager created');
+    this.threadAmount = walletConfig.workerThreadAmount;
     if (walletConfig.workerThreadAmount > 0) {
       this.pool = new Pool({
         create: (): Worker => {
           const worker = new Worker(path.resolve(__dirname, './loader.js'), {
             workerData: walletConfig,
           });
-
+          console.log('worker created');
           worker.stdout.on('data', data => logger.info(data.toString()));
           worker.stderr.on('data', data => logger.error(data.toString()));
           worker.on('error', err => {
@@ -38,6 +43,21 @@ export class WorkerManager {
         idleTimeoutMillis: ONE_DAY,
       });
     }
+  }
+
+  public async warmupThreads(): Promise<void[]> {
+    // warm up all the threads by acquiring then releasing them
+    // This will force them to load the worker scripts
+    const promises = _.range(this.threadAmount).map(
+      async () =>
+        new Promise<void>(resolve =>
+          this.pool?.acquire().promise.then(w => {
+            this.pool?.release(w);
+            resolve();
+          })
+        )
+    );
+    return Promise.all(promises);
   }
   public async concurrentSignState(
     state: StateWithHash,

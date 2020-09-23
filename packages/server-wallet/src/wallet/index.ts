@@ -95,7 +95,9 @@ export class Wallet implements WalletInterface {
   readonly walletConfig: ServerWalletConfig;
   constructor(walletConfig?: ServerWalletConfig) {
     this.walletConfig = walletConfig || defaultConfig;
+    console.log('wallet created');
     this.manager = new WorkerManager(this.walletConfig);
+
     this.knex = Knex(extractDBConfigFromServerWalletConfig(this.walletConfig));
     this.store = new Store(this.walletConfig.timingMetrics, this.walletConfig.skipEvmValidation);
     // Bind methods to class instance
@@ -289,8 +291,10 @@ export class Wallet implements WalletInterface {
 
   async updateChannel(args: UpdateChannelParams): SingleChannelResult {
     if (this.walletConfig.workerThreadAmount > 0) {
+      logger.warn(`update channel threading ${this.walletConfig.workerThreadAmount}`);
       return this.manager.updateChannel(args);
     } else {
+      logger.warn(`update channel default`);
       return this._updateChannel(args);
     }
   }
@@ -369,9 +373,11 @@ export class Wallet implements WalletInterface {
   }
 
   async pushMessage(rawPayload: unknown): MultipleChannelResult {
-    if (this.walletConfig.workerThreadAmount > 0) {
+    if (this.walletConfig.workerThreadAmount > 0 || false) {
+      console.log(`push message threading ${this.walletConfig.workerThreadAmount}`);
       return this.manager.pushMessage(rawPayload);
     } else {
+      logger.warn('push message default');
       return this._pushMessage(rawPayload);
     }
   }

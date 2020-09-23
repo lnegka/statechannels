@@ -8,7 +8,7 @@ import {logger} from '../logger';
 import ReceiverController from './controller';
 
 const controller = new ReceiverController();
-
+console.log('load');
 const app = express();
 
 app.use(pino({logger: logger as any}));

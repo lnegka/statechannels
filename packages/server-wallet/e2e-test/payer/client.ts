@@ -20,7 +20,9 @@ export default class PayerClient {
     await this.wallet.destroy();
   }
   private time = timerFactory(defaultConfig.timingMetrics, 'payerClient');
-  constructor(private readonly pk: Bytes32, private readonly receiverHttpServerURL: string) {}
+  constructor(private readonly pk: Bytes32, private readonly receiverHttpServerURL: string) {
+    console.log('payer called');
+  }
 
   public readonly participantId = 'payer';
 
