@@ -42,6 +42,12 @@ export const triggerPayments = async (
   payerScript.on('message', message =>
     console.log(PerformanceTimer.formatResults(JSON.parse(message as any)))
   );
+  payerScript.stdout?.on('data', data => console.log(data.toString()));
+  payerScript.stderr?.on('data', data => console.error(data.toString()));
+  payerScript.on('error', error => {
+    throw error;
+  });
+
   await new Promise(resolve => payerScript.on('exit', resolve));
 };
 
