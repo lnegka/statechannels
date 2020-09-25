@@ -26,6 +26,7 @@
     "@rimble/utils": "1.2.3",
     "@sentry/browser": "5.15.5",
     "@statechannels/client-api-schema": "^0.3.8-alpha.0",
+    "@statechannels/devtools": "^0.3.7",
     "@statechannels/nitro-protocol": "^0.3.7",
     "@statechannels/wallet-core": "^0.3.8-alpha.0",
     "@statechannels/wire-format": "^0.3.8-alpha.0",
@@ -83,7 +84,6 @@
   "devDependencies": {
     "@babel/core": "7.11.4",
     "@babel/preset-env": "7.11.0",
-    "@statechannels/devtools": "^0.3.7",
     "@storybook/addon-actions": "6.0.16",
     "@storybook/addon-essentials": "6.0.16",
     "@storybook/addon-info": "5.3.19",
@@ -93,6 +93,7 @@
     "@types/async-lock": "1.1.1",
     "@types/babel__core": "7.1.7",
     "@types/babel__preset-env": "7.9.0",
+    "@types/case-sensitive-paths-webpack-plugin": "^2.1.4",
     "@types/dotenv-webpack": "1.8.0",
     "@types/file-loader": "4.2.0",
     "@types/git-revision-webpack-plugin": "3.0.0",
