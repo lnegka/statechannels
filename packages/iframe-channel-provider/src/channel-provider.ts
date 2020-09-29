@@ -1,5 +1,5 @@
 import EventEmitter from 'eventemitter3';
-import {Guid} from 'guid-typescript';
+import { Guid } from 'guid-typescript';
 import {
   StateChannelsNotificationType,
   StateChannelsNotification,
@@ -8,15 +8,15 @@ import {
   isJsonRpcResponse,
   parseResponse,
   isJsonRpcErrorResponse,
-  parseErrorResponse
+  parseErrorResponse,
 } from '@statechannels/client-api-schema';
 
-import {IFrameChannelProviderInterface} from './types';
-import {WalletJsonRpcAPI} from './types/wallet-api';
-import {logger} from './logger';
-import {PostMessageService} from './postmessage-service';
-import {IFrameService} from './iframe-service';
-import {OnType, OffType, EventType, SubscribeType, UnsubscribeType} from './types/events';
+import { IFrameChannelProviderInterface } from './types';
+import { WalletJsonRpcAPI } from './types/wallet-api';
+import { logger } from './logger';
+import { PostMessageService } from './postmessage-service';
+import { IFrameService } from './iframe-service';
+import { OnType, OffType, EventType, SubscribeType, UnsubscribeType } from './types/events';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const normalizeUrl = require('normalize-url');
@@ -55,7 +55,7 @@ export class IFrameChannelProvider implements IFrameChannelProviderInterface {
     BudgetUpdated: [],
     MessageQueued: [],
     UIUpdate: [],
-    WalletReady: []
+    WalletReady: [],
   };
   /**
    * The url of the hosted statechannels wallet
@@ -91,7 +91,7 @@ export class IFrameChannelProvider implements IFrameChannelProviderInterface {
    * Is the wallet ready to receive requests?
    */
   walletReady = (url: string) => {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       const listener = (event: MessageEvent) => {
         if (event.origin === url && event.data.method === 'WalletReady') {
           window.removeEventListener('message', listener);
@@ -126,7 +126,7 @@ export class IFrameChannelProvider implements IFrameChannelProviderInterface {
     logger.info('Waiting for wallet ping...');
     await walletReady;
     logger.info('Wallet ready to receive requests');
-    const {signingAddress, destinationAddress, walletVersion} = await this.send(
+    const { signingAddress, destinationAddress, walletVersion } = await this.send(
       'GetWalletInformation',
       {}
     );
@@ -142,20 +142,21 @@ export class IFrameChannelProvider implements IFrameChannelProviderInterface {
    * This causes the provider to cache {@link IFrameChannelProvider.signingAddress | signingAddress}, {@link IFrameChannelProvider.destinationAddress | destinationAddress} and {@link IFrameChannelProvider.walletVersion | walletVersion} from the wallet.
    * @returns Promise which resolves when the wallet has completed the Enable Ethereum workflow.
    */
-  async enable() {
+  async enable(): Promise<void> {
     if (!this.mounted) {
       throw new Error(
         'ChannelProvider: You must call .mountWalletComponent() before calling .enable()'
       );
     }
 
-    const {signingAddress, destinationAddress, walletVersion} = await this.send(
+    const { signingAddress, destinationAddress, walletVersion } = await this.send(
       'EnableEthereum',
       {}
     );
     this.signingAddress = signingAddress;
     this.destinationAddress = destinationAddress;
     this.walletVersion = walletVersion;
+    return;
   }
 
   async send<M extends keyof WalletJsonRpcAPI>(
@@ -166,20 +167,20 @@ export class IFrameChannelProvider implements IFrameChannelProviderInterface {
     const response = await this.messaging.request(target, {
       jsonrpc: '2.0',
       method: method,
-      params: params
+      params: params,
     });
 
     return response;
   }
 
-  subscribe: SubscribeType = async subscriptionType => {
+  subscribe: SubscribeType = async (subscriptionType) => {
     const subscriptionId = Guid.create().toString();
     this.subscriptions[subscriptionType].push(subscriptionId);
     return subscriptionId;
   };
 
-  unsubscribe: UnsubscribeType = async subscriptionId => {
-    Object.keys(this.subscriptions).forEach(method => {
+  unsubscribe: UnsubscribeType = async (subscriptionId) => {
+    Object.keys(this.subscriptions).forEach((method) => {
       this.subscriptions[method as StateChannelsNotification['method']] = this.subscriptions[
         method as StateChannelsNotification['method']
       ].filter((id: string) => id != subscriptionId);
@@ -211,7 +212,7 @@ export class IFrameChannelProvider implements IFrameChannelProviderInterface {
       if ('showWallet' in message.params) {
         this.iframe.setVisibility(message.params.showWallet);
       } else {
-        this.subscriptions[notificationMethod].forEach(id => {
+        this.subscriptions[notificationMethod].forEach((id) => {
           this.events.emit(id, notificationParams);
         });
       }
@@ -233,4 +234,4 @@ export class IFrameChannelProvider implements IFrameChannelProviderInterface {
  */
 const channelProvider = new IFrameChannelProvider();
 
-export {channelProvider};
+export { channelProvider };
