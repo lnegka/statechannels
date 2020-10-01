@@ -13,7 +13,7 @@ import {
   makeDestination,
   BN,
 } from '@statechannels/wallet-core';
-import { constants as ethersConstants } from 'ethers';
+import {constants as ethersConstants} from 'ethers';
 
 import { TestStore } from '../../test-store';
 import { ParticipantIdx } from '../virtual-funding-as-leaf';

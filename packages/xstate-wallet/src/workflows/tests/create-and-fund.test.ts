@@ -11,7 +11,7 @@ import {
   isSimpleEthAllocation,
   BN,
 } from '@statechannels/wallet-core';
-import { constants } from 'ethers';
+import {constants} from 'ethers';
 
 import { Store } from '../../store';
 import { FakeChain } from '../../chain';

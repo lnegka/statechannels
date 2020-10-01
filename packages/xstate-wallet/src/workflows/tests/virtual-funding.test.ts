@@ -12,7 +12,7 @@ import {
   simpleEthGuarantee,
   BN,
 } from '@statechannels/wallet-core';
-import { constants } from 'ethers';
+import {constants} from 'ethers';
 
 import { FakeChain } from '../../chain';
 import { TestStore } from '../../test-store';

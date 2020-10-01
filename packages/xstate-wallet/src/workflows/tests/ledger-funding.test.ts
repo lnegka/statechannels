@@ -13,7 +13,7 @@ import {
   BN,
 } from '@statechannels/wallet-core';
 import _ from 'lodash';
-import { constants } from 'ethers';
+import {constants} from 'ethers';
 
 import { FakeChain, Chain } from '../../chain';
 import { TestStore } from '../../test-store';
