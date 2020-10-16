@@ -17,10 +17,15 @@ import {
   defaultTestConfig,
 } from '../src/config';
 
-export const payerConfig: ServerWalletConfig = {...defaultTestConfig, postgresDBName: 'payer'};
+export const payerConfig: ServerWalletConfig = {
+  ...defaultTestConfig,
+  postgresDBName: 'payer',
+  skipEvmValidation: false,
+};
 export const receiverConfig: ServerWalletConfig = {
   ...defaultTestConfig,
   postgresDBName: 'receiver',
+  skipEvmValidation: false,
 };
 
 import {PerformanceTimer} from './payer/timers';
