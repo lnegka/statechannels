@@ -9,7 +9,6 @@ const NUMBER_OF_CHANNELS = 100;
 const a = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_A'});
 const b = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_B'});
 
-let channelId: string;
 let participantA: Participant;
 let participantB: Participant;
 
@@ -64,5 +63,8 @@ it('Creates 100 channels between 2 wallet sand ledger funds them ', async () => 
 
   const resultA0 = await a.bulkCreateAndLedgerFund(createChannelParams, NUMBER_OF_CHANNELS);
 
-  expect(resultA0).toMatchObject({ledgerId: 'foo', channelIds: []});
+  expect(resultA0).toMatchObject({
+    ledgerId: expect.stringMatching(/^0x/),
+    channelIds: Array(NUMBER_OF_CHANNELS).fill(expect.stringMatching(/^0x/)),
+  });
 });
