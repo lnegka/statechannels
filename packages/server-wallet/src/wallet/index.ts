@@ -53,7 +53,7 @@ import {
   MockChainService,
 } from '../chain-service';
 import {DBAdmin} from '../db-admin/db-admin';
-import {Objective as ObjectiveModel} from '../models/objective';
+import {Objective, Objective as ObjectiveModel} from '../models/objective';
 import {AppBytecode} from '../models/app-bytecode';
 
 import {Store, AppHandler, MissingAppHandler, ObjectiveStoredInDB} from './store';
@@ -296,6 +296,26 @@ export class Wallet extends EventEmitter<WalletEvent>
       channelResults: mergeChannelResults(channelResults),
       outbox: mergeOutgoing(outgoing),
     };
+  }
+  async bulkCreateAndLedgerFund(
+    args: CreateChannelParams,
+    count: number
+  ): Promise<{ledgerId: string; channelIds: string[]}> {
+    const {channelId: ledgerId} = await (await this.createChannel(args)).channelResults[0]; // Ledger channel
+    const channelIds = (
+      await this.createChannels({...args, fundingStrategy: 'Ledger'}, count)
+    ).channelResults // Channels to be funded via above ledger channel
+      .map(cR => cR.channelId);
+    ObjectiveModel.insert(
+      {
+        type: 'BulkCreateAndLedgerFund',
+        data: {ledgerId, channelIds},
+        participants: [],
+        status: 'approved',
+      },
+      this.knex
+    );
+    return {ledgerId, channelIds}; // TODO queue a message to send to counterparty
   }
 
   async createChannelInternal(

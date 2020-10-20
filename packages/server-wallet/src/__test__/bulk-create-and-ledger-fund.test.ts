@@ -2,8 +2,8 @@ import {CreateChannelParams, Participant, Allocation} from '@statechannels/clien
 import {makeDestination} from '@statechannels/wallet-core';
 import {BigNumber, ethers} from 'ethers';
 
-import {defaultTestConfig} from '../../config';
-import {Wallet} from '../../wallet';
+import {defaultTestConfig} from '../config';
+import {Wallet} from '../wallet';
 
 const NUMBER_OF_CHANNELS = 100;
 const a = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_A'});

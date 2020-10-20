@@ -47,6 +47,46 @@
       },
       "type": "array"
     },
+    "BulkCreateAndLedgerFund": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": false,
+          "properties": {
+            "channelIds": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "ledgerId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "ledgerId",
+            "channelIds"
+          ],
+          "type": "object"
+        },
+        "participants": {
+          "items": {
+            "$ref": "#/definitions/Participant"
+          },
+          "type": "array"
+        },
+        "type": {
+          "const": "BulkCreateAndLedgerFund",
+          "type": "string"
+        }
+      },
+      "required": [
+        "participants",
+        "type",
+        "data"
+      ],
+      "type": "object"
+    },
     "Bytes": {
       "description": "Bytes",
       "pattern": "^0x([a-fA-F0-9]*)$",
@@ -293,6 +333,9 @@
         },
         {
           "$ref": "#/definitions/CloseLedger"
+        },
+        {
+          "$ref": "#/definitions/BulkCreateAndLedgerFund"
         }
       ]
     },
