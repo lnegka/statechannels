@@ -60,7 +60,9 @@ import {Store, AppHandler, MissingAppHandler} from './store';
 export type SingleChannelOutput = {outbox: Outgoing[]; channelResult: ChannelResult};
 export type MultipleChannelOutput = {outbox: Outgoing[]; channelResults: ChannelResult[]};
 type Message = SingleChannelOutput | MultipleChannelOutput;
-type WalletEvent = {singleChannelOutput: SingleChannelOutput};
+
+export type WalletEventName = 'channelUpdate' | 'channelReady';
+type WalletEvent = {[key in WalletEventName]: SingleChannelOutput};
 
 const isSingleChannelMessage = (message: Message): message is SingleChannelOutput =>
   'channelResult' in message;
@@ -559,8 +561,18 @@ export class Wallet extends EventEmitter<WalletEvent>
           this.walletConfig.timingMetrics
         );
 
-        if (!nextAction) markChannelAsDone();
-        else {
+        if (!nextAction) {
+          markChannelAsDone();
+          // todo: is there a better check for "has the final postfund state been signed"?
+          if (app.supported?.turnNum === app.participants.length * 2 - 1) {
+            const toEmit: SingleChannelOutput = {
+              channelResult: ChannelState.toChannelResult(app),
+              outbox: [],
+            };
+            const channelReady: WalletEventName = 'channelReady';
+            this.emit(channelReady, toEmit);
+          }
+        } else {
           try {
             await doAction(nextAction);
           } catch (err) {
@@ -576,7 +588,10 @@ export class Wallet extends EventEmitter<WalletEvent>
 
   // ChainEventSubscriberInterface implementation
   onHoldingUpdated(arg: HoldingUpdatedArg): void {
-    this.updateChannelFundingForAssetHolder(arg).then(arg => this.emit('singleChannelOutput', arg));
+    const channelUpdate: WalletEventName = 'channelUpdate';
+    this.updateChannelFundingForAssetHolder(arg).then(singleChannelOutput =>
+      this.emit(channelUpdate, singleChannelOutput)
+    );
   }
 
   onAssetTransferred(_arg: AssetTransferredArg): void {
