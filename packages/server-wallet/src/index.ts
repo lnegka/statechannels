@@ -1,6 +1,6 @@
 import {Payload} from '@statechannels/wallet-core';
 
-import {Wallet} from './wallet';
+import {Wallet, SingleChannelOutput} from './wallet';
 import {Outgoing} from './protocols/actions';
 
-export {Wallet, Payload as Message, Outgoing};
+export {Wallet, Payload as Message, Outgoing, SingleChannelOutput};
