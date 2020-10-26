@@ -405,7 +405,17 @@ export class Store {
   }
 
   async addObjective(objective: Objective, tx: Transaction): Promise<ObjectiveStoredInDB> {
-    if (isOpenChannel(objective)) {
+    if (objective.type === 'BulkCreateAndLedgerFund') {
+      const objectiveToBeStored: ObjectiveStoredInDB = {
+        objectiveId: objectiveId(objective),
+        participants: [],
+        status: 'pending',
+        type: objective.type,
+        data: objective.data,
+      };
+      await ObjectiveModel.insert(objectiveToBeStored, tx);
+      return objectiveToBeStored;
+    } else if (isOpenChannel(objective)) {
       const {
         data: {targetChannelId: channelId, fundingStrategy},
       } = objective;
