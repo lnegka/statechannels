@@ -392,8 +392,8 @@ export class Wallet extends EventEmitter<WalletEvent>
       const participants = appChannelArgs.participants;
 
       signedStates.push(ledgerSignedState);
-      outgoings.concat(
-        ledgerChannelArgs.participants.map(({participantId: recipient}) => ({
+      outgoings.push(
+        ...ledgerChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
           method: 'MessageQueued' as const,
           params: serializeMessage(
             {signedStates: [ledgerSignedState]},
@@ -411,8 +411,8 @@ export class Wallet extends EventEmitter<WalletEvent>
         );
         channelIds.push(channelId);
         signedStates.push(signedState);
-        outgoings.concat(
-          appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
+        outgoings.push(
+          ...appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
             method: 'MessageQueued' as const,
             params: serializeMessage(
               {signedStates: [signedState]},
@@ -431,8 +431,8 @@ export class Wallet extends EventEmitter<WalletEvent>
       };
 
       // Add the objective
-      outgoings.concat(
-        appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
+      outgoings.push(
+        ...appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
           method: 'MessageQueued' as const,
           params: serializeMessage(
             {objectives: [objective]},
