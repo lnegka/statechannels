@@ -24,12 +24,16 @@ import {
   Zero,
   objectiveId,
   Objective as ObjectiveType,
+  StateVariables,
+  calculateChannelId,
+  SignedState,
 } from '@statechannels/wallet-core';
 import * as Either from 'fp-ts/lib/Either';
 import Knex from 'knex';
-import _ from 'lodash';
+import _, {pick} from 'lodash';
 import EventEmitter from 'eventemitter3';
 import {BigNumber, constants} from 'ethers';
+import {Transaction} from 'objection';
 
 import {Bytes32, Uint256} from '../type-aliases';
 import {Outgoing, ProtocolAction} from '../protocols/actions';
@@ -54,10 +58,11 @@ import {
   MockChainService,
 } from '../chain-service';
 import {DBAdmin} from '../db-admin/db-admin';
-import {Objective, Objective as ObjectiveModel} from '../models/objective';
+import {Objective as ObjectiveModel} from '../models/objective';
 import {AppBytecode} from '../models/app-bytecode';
+import {Channel, CHANNEL_COLUMNS, RequiredColumns} from '../models/channel';
 
-import {Store, AppHandler, MissingAppHandler, ObjectiveStoredInDB} from './store';
+import {Store, AppHandler, MissingAppHandler, ObjectiveStoredInDB, getSigningWallet} from './store';
 
 // TODO: The client-api does not currently allow for outgoing messages to be
 // declared as the result of a wallet API call.
@@ -321,26 +326,126 @@ export class Wallet extends EventEmitter<WalletEvent>
     };
   }
 
+  async createChannelWithoutObjective(
+    params: CreateChannelParams,
+    tx: Transaction
+  ): Promise<{channelId: string; signedState: SignedState; myIndex: number}> {
+    const {participants, appDefinition, appData, allocations} = params;
+    const outcome: Outcome = deserializeAllocations(allocations);
+    const channelNonce = await this.store.nextNonce(params.participants.map(p => p.signingAddress));
+    const constants: ChannelConstants = {
+      channelNonce,
+      participants: participants.map(convertToParticipant),
+      chainId: this.walletConfig.chainNetworkID,
+      challengeDuration: 9001,
+      appDefinition,
+    };
+    const stateVariables: StateVariables = {
+      ...constants,
+      turnNum: 0,
+      isFinal: false,
+      appData,
+      outcome,
+    };
+    const channelId = calculateChannelId(constants);
+
+    const {address: signingAddress} = await getSigningWallet(constants, tx);
+
+    const cols: RequiredColumns = pick(
+      {
+        ...constants,
+        channelId,
+        vars: [],
+        chainServiceRequests: [],
+        signingAddress,
+        fundingStrategy: params.fundingStrategy,
+      },
+      ...CHANNEL_COLUMNS
+    );
+    const channel = Channel.fromJson(cols);
+    const {myIndex} = await Channel.query(tx)
+      .insert(channel)
+      .returning('*')
+      .first();
+
+    const signedState = await this.store.signState(channelId, stateVariables, tx);
+    return {channelId, signedState, myIndex};
+  }
+
   async bulkCreateAndLedgerFund(
     appChannelArgs: CreateChannelParams,
     count: number
-  ): Promise<{ledgerId: string; channelIds: string[]}> {
-    const ledgerChannelArgs = constructCreateLedgerChannelParams(appChannelArgs, count);
-    const {channelId: ledgerId} = (await this.createChannel(ledgerChannelArgs)).channelResults[0]; // Ledger channel
-    const channelIds = (
-      await this.createChannels({...appChannelArgs, fundingStrategy: 'Ledger'}, count)
-    ).channelResults // Channels to be funded via above ledger channel
-      .map(cR => cR.channelId);
-    ObjectiveModel.insert(
-      {
+  ): Promise<{ledgerId: string; channelIds: string[]; outbox: Outgoing[]}> {
+    return await this.knex.transaction(async trx => {
+      const channelIds: string[] = [];
+      const signedStates: SignedState[] = [];
+      const outgoings: Outgoing[] = [];
+
+      const notMe = (_p: any, i: number): boolean => i !== myIndex;
+      const ledgerChannelArgs = constructCreateLedgerChannelParams(appChannelArgs, count);
+      const {
+        channelId: ledgerId,
+        signedState: ledgerSignedState,
+        myIndex,
+      } = await this.createChannelWithoutObjective(ledgerChannelArgs, trx);
+
+      const participants = appChannelArgs.participants;
+
+      signedStates.push(ledgerSignedState);
+      outgoings.concat(
+        ledgerChannelArgs.participants.map(({participantId: recipient}) => ({
+          method: 'MessageQueued' as const,
+          params: serializeMessage(
+            {signedStates: [ledgerSignedState]},
+            recipient,
+            participants[myIndex].participantId,
+            ledgerId
+          ),
+        }))
+      );
+
+      for (let i = 0; i < count; i++) {
+        const {channelId, signedState} = await this.createChannelWithoutObjective(
+          appChannelArgs,
+          trx
+        );
+        channelIds.push(channelId);
+        signedStates.push(signedState);
+        outgoings.concat(
+          appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
+            method: 'MessageQueued' as const,
+            params: serializeMessage(
+              {signedStates: [signedState]},
+              recipient,
+              participants[myIndex].participantId,
+              channelId
+            ),
+          }))
+        );
+      }
+
+      const objective: ObjectiveType = {
         type: 'BulkCreateAndLedgerFund',
         data: {ledgerId, channelIds},
         participants: [],
-        status: 'approved',
-      },
-      this.knex
-    );
-    return {ledgerId, channelIds}; // TODO queue a message to send to counterparty
+      };
+
+      // Add the objective
+      outgoings.concat(
+        appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
+          method: 'MessageQueued' as const,
+          params: serializeMessage(
+            {objectives: [objective]},
+            recipient,
+            participants[myIndex].participantId
+          ),
+        }))
+      );
+
+      ObjectiveModel.insert({...objective, status: 'approved'}, trx);
+
+      return {ledgerId, channelIds, outbox: mergeOutgoing(outgoings)};
+    });
   }
 
   async createChannelInternal(
