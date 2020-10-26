@@ -696,7 +696,7 @@ async function getChannel(
   }
 }
 
-async function getSigningWallet(
+export async function getSigningWallet(
   channel: ChannelConstants,
   txOrKnex: TransactionOrKnex
 ): Promise<SigningWallet> {
