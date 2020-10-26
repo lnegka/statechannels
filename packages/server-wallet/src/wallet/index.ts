@@ -442,7 +442,7 @@ export class Wallet extends EventEmitter<WalletEvent>
         }))
       );
 
-      ObjectiveModel.insert({...objective, status: 'approved'}, trx);
+      await ObjectiveModel.insert({...objective, status: 'approved'}, trx);
 
       return {ledgerId, channelIds, outbox: mergeOutgoing(outgoings)};
     });
