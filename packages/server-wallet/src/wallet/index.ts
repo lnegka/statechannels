@@ -29,6 +29,7 @@ import * as Either from 'fp-ts/lib/Either';
 import Knex from 'knex';
 import _ from 'lodash';
 import EventEmitter from 'eventemitter3';
+import {BigNumber, constants} from 'ethers';
 
 import {Bytes32, Uint256} from '../type-aliases';
 import {Outgoing, ProtocolAction} from '../protocols/actions';
@@ -78,6 +79,28 @@ type WalletEvent = {[key in WalletEventName]: SingleChannelOutput};
 
 const isSingleChannelMessage = (message: Message): message is SingleChannelOutput =>
   'channelResult' in message;
+
+// TODO put somewhere better
+function constructCreateLedgerChannelParams(
+  appChannelArgs: CreateChannelParams,
+  count: number
+): CreateChannelParams {
+  return {
+    ...appChannelArgs,
+    appDefinition: constants.AddressZero,
+    appData: '0x00',
+    fundingStrategy: 'Unfunded',
+    allocations: appChannelArgs.allocations.map(allocation => ({
+      token: allocation.token,
+      allocationItems: allocation.allocationItems.map(allocationItem => ({
+        destination: allocationItem.destination,
+        amount: BigNumber.from(allocationItem.amount)
+          .mul(count)
+          .toString(),
+      })),
+    })),
+  };
+}
 
 export interface UpdateChannelFundingParams {
   channelId: ChannelId;
@@ -297,13 +320,15 @@ export class Wallet extends EventEmitter<WalletEvent>
       outbox: mergeOutgoing(outgoing),
     };
   }
+
   async bulkCreateAndLedgerFund(
-    args: CreateChannelParams,
+    appChannelArgs: CreateChannelParams,
     count: number
   ): Promise<{ledgerId: string; channelIds: string[]}> {
-    const {channelId: ledgerId} = await (await this.createChannel(args)).channelResults[0]; // Ledger channel
+    const ledgerChannelArgs = constructCreateLedgerChannelParams(appChannelArgs, count);
+    const {channelId: ledgerId} = (await this.createChannel(ledgerChannelArgs)).channelResults[0]; // Ledger channel
     const channelIds = (
-      await this.createChannels({...args, fundingStrategy: 'Ledger'}, count)
+      await this.createChannels({...appChannelArgs, fundingStrategy: 'Ledger'}, count)
     ).channelResults // Channels to be funded via above ledger channel
       .map(cR => cR.channelId);
     ObjectiveModel.insert(
