@@ -23,9 +23,13 @@ import {
   assetHolderAddress as getAssetHolderAddress,
   Zero,
   Payload,
+  deserializeRequest,
+  checkThat,
+  isSimpleAllocation,
 } from '@statechannels/wallet-core';
 import * as Either from 'fp-ts/lib/Either';
 import Knex from 'knex';
+import pMap from 'p-map';
 import _ from 'lodash';
 import EventEmitter from 'eventemitter3';
 import {ethers} from 'ethers';
@@ -558,33 +562,54 @@ export class SingleThreadedWallet extends EventEmitter<EventEmitterType>
     const store = this.store;
 
     // TODO: Move into utility somewhere?
-    function handleRequest(outbox: Outgoing[]): (req: ChannelRequest) => Promise<void> {
-      return async ({channelId}: ChannelRequest): Promise<void> => {
-        const {states: signedStates, channelState} = await store.getStates(channelId);
+    function handleRequest(outbox: Outgoing[]): (req: ChannelRequest) => Promise<Bytes32> {
+      return async (req: ChannelRequest): Promise<Bytes32> => {
+        const {channelId} = req;
 
-        const {participants, myIndex} = channelState;
+        if (req.type === 'GetChannel') {
+          const {states: signedStates, channelState} = await store.getStates(channelId);
 
-        createOutboxFor(channelId, myIndex, participants, {
-          walletVersion: WALLET_VERSION,
-          signedStates,
-        }).map(outgoing => outbox.push(outgoing));
+          const {participants, myIndex} = channelState;
+
+          createOutboxFor(channelId, myIndex, participants, {
+            walletVersion: WALLET_VERSION,
+            signedStates,
+          }).map(outgoing => outbox.push(outgoing));
+        } else if (req.type === 'ProposeLedger') {
+          await store.storeTheirLedgerCommit(channelId, checkThat(req.outcome, isSimpleAllocation));
+        }
+
+        return channelId;
       };
     }
 
-    const {channelIds, objectives, channelResults: fromStoring} = await this.store.pushMessage(
-      wirePayload
-    );
+    const {
+      channelIds: channelIdsFromStates,
+      objectives,
+      channelResults: fromStoring,
+    } = await this.store.pushMessage(wirePayload);
 
-    const {channelResults, outbox} = await this.takeActions(channelIds);
+    let outbox: Outgoing[] = [];
+    let channelIdsFromRequests: Bytes32[] = [];
+
+    if (wirePayload.requests && wirePayload.requests.length > 0)
+      // Modifies outbox, may append new messages
+      channelIdsFromRequests = await pMap(wirePayload.requests, req =>
+        handleRequest(outbox)(deserializeRequest(req))
+      );
+
+    const channelIds = _.uniq(channelIdsFromStates.concat(channelIdsFromRequests));
+
+    const runLoopResult = await this.takeActions(channelIds);
+
+    const {channelResults} = runLoopResult;
+
+    outbox = outbox.concat(runLoopResult.outbox);
 
     for (const channel of mergeChannelResults(fromStoring)) {
       if (!_.some(channelResults, c => c.channelId === channel.channelId))
         channelResults.push(channel);
     }
-
-    if (wirePayload.requests && wirePayload.requests.length > 0)
-      // Modifies outbox, may append new messages
-      await Promise.all(wirePayload.requests.map(wP => handleRequest(outbox)(wP)));
 
     return {
       outbox: mergeOutgoing(outbox),
@@ -667,6 +692,32 @@ export class SingleThreadedWallet extends EventEmitter<EventEmitterType>
                   walletVersion: WALLET_VERSION,
                   signedStates: [await this.store.signState(channelId, action.stateToSign, tx)],
                 };
+
+                await Promise.all(
+                  action.channelsNotFunded.map(
+                    async c => await LedgerRequest.setRequestStatus(c, 'fund', 'failed', tx)
+                  )
+                );
+
+                await this.store.removeMyLedgerCommit(action.channelId, tx);
+                await this.store.removeTheirLedgerCommit(action.channelId, tx);
+
+                const messages = createOutboxFor(channelId, myIndex, participants, payload);
+
+                messages.forEach(message => outbox.push(message));
+
+                return;
+              }
+
+              case 'ProposeLedgerState': {
+                const {myIndex, participants, channelId} = protocolState.fundingChannel;
+
+                const payload: Payload = {
+                  walletVersion: WALLET_VERSION,
+                  requests: [{type: 'ProposeLedger' as const, channelId, outcome: action.outcome}],
+                };
+
+                await this.store.storeMyLedgerCommit(action.channelId, action.outcome, tx);
 
                 await Promise.all(
                   action.channelsNotFunded.map(
