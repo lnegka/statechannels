@@ -22,8 +22,8 @@ import {
   Payload,
   assetHolderAddress as getAssetHolderAddress,
   Zero,
-  Objective,
   objectiveId,
+  Objective as ObjectiveType,
 } from '@statechannels/wallet-core';
 import * as Either from 'fp-ts/lib/Either';
 import Knex from 'knex';
@@ -457,7 +457,7 @@ export class Wallet extends EventEmitter<WalletEvent>
       // const {outgoing, channelResult} = await this.store.signState(channelId, nextState, tx);
       // return {outbox: outgoing.map(n => n.notice), channelResult};
 
-      const objective: Objective = {
+      const objective: ObjectiveType = {
         type: 'CloseChannel',
         participants: [],
         data: {targetChannelId: channelId, fundingStrategy: channel.fundingStrategy},
