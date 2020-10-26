@@ -5,7 +5,11 @@ import {BigNumber, ethers} from 'ethers';
 import {defaultTestConfig} from '../config';
 import {Wallet} from '../wallet';
 
-const NUMBER_OF_CHANNELS = 100;
+import {getPayloadFor} from './test-helpers';
+
+jest.setTimeout(10_000);
+
+const NUMBER_OF_CHANNELS = 10; // We want to do more than this, but may be constrained by the number of db connections and the test timeout
 const a = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_A'});
 const b = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_B'});
 
@@ -38,7 +42,7 @@ afterAll(async () => {
   await b.dbAdmin().dropDB();
 });
 
-it('Creates 100 channels between 2 wallet sand ledger funds them ', async () => {
+it('Creates 100 channels between 2 wallet and ledger funds them ', async () => {
   const allocation: Allocation = {
     allocationItems: [
       {
@@ -67,4 +71,22 @@ it('Creates 100 channels between 2 wallet sand ledger funds them ', async () => 
     ledgerId: expect.stringMatching(/^0x/),
     channelIds: Array(NUMBER_OF_CHANNELS).fill(expect.stringMatching(/^0x/)),
   });
+
+  // A sends to B
+  const bPushOutput = await b.pushMessage(
+    getPayloadFor(participantB.participantId, resultA0.outbox)
+  );
+
+  expect(bPushOutput).toMatchObject({
+    channelResults: Array(NUMBER_OF_CHANNELS + 1).fill(
+      expect.objectContaining({status: 'proposed'})
+    ),
+  });
+
+  const {objectiveId, type, data} = bPushOutput.objectivesToApprove![0];
+  expect(type).toEqual('BulkCreateAndLedgerFund');
+
+  expect((data as any).channelIds).toMatchObject(
+    Array(NUMBER_OF_CHANNELS).fill(expect.stringMatching(/^0x/))
+  );
 });
