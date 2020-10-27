@@ -25,11 +25,16 @@ import {
   objectiveId,
   deserializeState,
   statesEqual,
+  deserializeAllocations,
 } from '@statechannels/wallet-core';
 import {Payload as WirePayload, SignedState as WireSignedState} from '@statechannels/wire-format';
 import {State as NitroState} from '@statechannels/nitro-protocol';
 import _ from 'lodash';
-import {ChannelResult, FundingStrategy} from '@statechannels/client-api-schema';
+import {
+  ChannelResult,
+  CreateChannelParams,
+  FundingStrategy,
+} from '@statechannels/client-api-schema';
 import {ethers, constants} from 'ethers';
 import Knex from 'knex';
 
@@ -642,6 +647,52 @@ export class Store {
 
   async nextNonce(signingAddresses: Address[]): Promise<number> {
     return await Nonce.next(this.knex, signingAddresses);
+  }
+
+  async createChannelWithoutObjective(
+    params: CreateChannelParams,
+    tx: Transaction
+  ): Promise<{channelId: string; signedState: SignedState; myIndex: number}> {
+    const {participants, appDefinition, appData, allocations} = params;
+    const outcome: Outcome = deserializeAllocations(allocations);
+    const channelNonce = await this.nextNonce(params.participants.map(p => p.signingAddress));
+    const constants: ChannelConstants = {
+      channelNonce,
+      participants: participants.map(convertToParticipant),
+      chainId: '0x00', // TODO get this from store config
+      challengeDuration: 9001,
+      appDefinition,
+    };
+    const stateVariables: StateVariables = {
+      ...constants,
+      turnNum: 0,
+      isFinal: false,
+      appData,
+      outcome,
+    };
+    const channelId = calculateChannelId(constants);
+
+    const {address: signingAddress} = await getSigningWallet(constants, tx);
+
+    const cols: RequiredColumns = pick(
+      {
+        ...constants,
+        channelId,
+        vars: [],
+        chainServiceRequests: [],
+        signingAddress,
+        fundingStrategy: params.fundingStrategy,
+      },
+      ...CHANNEL_COLUMNS
+    );
+    const channel = Channel.fromJson(cols);
+    const {myIndex} = await Channel.query(tx)
+      .insert(channel)
+      .returning('*')
+      .first();
+
+    const signedState = await this.signState(channelId, stateVariables, tx);
+    return {channelId, signedState, myIndex};
   }
 }
 
