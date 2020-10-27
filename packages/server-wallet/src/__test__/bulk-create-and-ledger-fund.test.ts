@@ -5,7 +5,7 @@ import {BigNumber, ethers} from 'ethers';
 import {defaultTestConfig} from '../config';
 import {Wallet} from '../wallet';
 
-import {getPayloadFor} from './test-helpers';
+import {getObjectiveToApprove, getPayloadFor} from './test-helpers';
 
 jest.setTimeout(10_000);
 
@@ -83,10 +83,10 @@ it('Creates 100 channels between 2 wallet and ledger funds them ', async () => {
     ),
   });
 
-  const {objectiveId, type, data} = bPushOutput.objectivesToApprove![0];
-  expect(type).toEqual('BulkCreateAndLedgerFund');
+  const objective = getObjectiveToApprove(bPushOutput);
+  expect(objective.type).toEqual('BulkCreateAndLedgerFund');
 
-  expect((data as any).channelIds).toMatchObject(
+  expect((objective.data as any).channelIds).toMatchObject(
     Array(NUMBER_OF_CHANNELS).fill(expect.stringMatching(/^0x/))
   );
 });
