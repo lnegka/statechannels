@@ -70,12 +70,12 @@ import {Store, AppHandler, MissingAppHandler, ObjectiveStoredInDB, getSigningWal
 export type SingleChannelOutput = {
   outbox: Outgoing[];
   channelResult: ChannelResult;
-  objectivesToApprove?: Omit<ObjectiveStoredInDB, 'status'>[];
+  objectivesToApprove?: ObjectiveStoredInDB[];
 };
 export type MultipleChannelOutput = {
   outbox: Outgoing[];
   channelResults: ChannelResult[];
-  objectivesToApprove?: Omit<ObjectiveStoredInDB, 'status'>[];
+  objectivesToApprove?: ObjectiveStoredInDB[];
 };
 type Message = SingleChannelOutput | MultipleChannelOutput;
 
@@ -376,6 +376,7 @@ export class Wallet extends EventEmitter<WalletEvent>
     appChannelArgs: CreateChannelParams,
     count: number
   ): Promise<{ledgerId: string; channelIds: string[]; outbox: Outgoing[]}> {
+    // TODO what if appChannelArgs.fundingStrategy != 'Ledger' or appDefinition !=0x00 ?
     return await this.knex.transaction(async trx => {
       const channelIds: string[] = [];
       const signedStates: SignedState[] = [];
@@ -523,6 +524,11 @@ export class Wallet extends EventEmitter<WalletEvent>
     };
   }
 
+  async approveObjective(objectiveId: string): Promise<void> {
+    return this.knex.transaction(async trx => {
+      await ObjectiveModel.approve(objectiveId, trx);
+    });
+  }
   async updateChannel(args: UpdateChannelParams): Promise<SingleChannelOutput> {
     if (this.walletConfig.workerThreadAmount > 0) {
       return this.manager.updateChannel(args);

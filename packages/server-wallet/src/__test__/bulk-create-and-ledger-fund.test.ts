@@ -62,7 +62,7 @@ it('Creates 100 channels between 2 wallet and ledger funds them ', async () => {
     allocations: [allocation],
     appDefinition: ethers.constants.AddressZero,
     appData: '0x00', // must be even length
-    fundingStrategy: 'Direct',
+    fundingStrategy: 'Ledger',
   };
 
   const resultA0 = await a.bulkCreateAndLedgerFund(createChannelParams, NUMBER_OF_CHANNELS);
@@ -72,7 +72,7 @@ it('Creates 100 channels between 2 wallet and ledger funds them ', async () => {
     channelIds: Array(NUMBER_OF_CHANNELS).fill(expect.stringMatching(/^0x/)),
   });
 
-  // A sends to B
+  // A sends to B, B pushes
   const bPushOutput = await b.pushMessage(
     getPayloadFor(participantB.participantId, resultA0.outbox)
   );
@@ -85,8 +85,12 @@ it('Creates 100 channels between 2 wallet and ledger funds them ', async () => {
 
   const objective = getObjectiveToApprove(bPushOutput);
   expect(objective.type).toEqual('BulkCreateAndLedgerFund');
+  expect(objective.objectiveId).toEqual(expect.stringMatching(/^BulkCreateAndLedgerFund-0x/));
 
   expect((objective.data as any).channelIds).toMatchObject(
     Array(NUMBER_OF_CHANNELS).fill(expect.stringMatching(/^0x/))
   );
+
+  // B approves
+  await b.approveObjective(objective.objectiveId);
 });

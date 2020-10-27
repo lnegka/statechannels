@@ -406,15 +406,14 @@ export class Store {
 
   async addObjective(objective: Objective, tx: Transaction): Promise<ObjectiveStoredInDB> {
     if (objective.type === 'BulkCreateAndLedgerFund') {
-      const objectiveToBeStored: ObjectiveStoredInDB = {
-        objectiveId: objectiveId(objective),
+      const objectiveWithoutId = {
         participants: [],
-        status: 'pending',
-        type: objective.type,
+        status: 'pending' as const,
+        type: 'BulkCreateAndLedgerFund' as const,
         data: objective.data,
       };
-      await ObjectiveModel.insert(objectiveToBeStored, tx);
-      return objectiveToBeStored;
+      await ObjectiveModel.insert(objectiveWithoutId, tx);
+      return {...objectiveWithoutId, objectiveId: objectiveId(objective)};
     } else if (isOpenChannel(objective)) {
       const {
         data: {targetChannelId: channelId, fundingStrategy},

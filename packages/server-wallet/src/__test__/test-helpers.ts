@@ -1,5 +1,6 @@
 import {ChannelResult} from '@statechannels/client-api-schema';
 import {Payload, SignedState} from '@statechannels/wire-format';
+import {Objective} from '@statechannels/wallet-core';
 
 import {MultipleChannelOutput} from '../wallet';
 import {ObjectiveStoredInDB} from '../wallet/store';
@@ -35,9 +36,7 @@ export function getSignedStateFor(channelId: string, outbox: Outgoing[]): Signed
   return filteredSignedStates[0];
 }
 
-export function getObjectiveToApprove(
-  output: MultipleChannelOutput
-): Omit<ObjectiveStoredInDB, 'status'> {
+export function getObjectiveToApprove(output: MultipleChannelOutput): ObjectiveStoredInDB {
   if (output.objectivesToApprove === undefined) throw Error('No objective in outbox');
   if (output.objectivesToApprove.length != 1)
     throw Error(`Expected exactly one objective, found ${output.objectivesToApprove.length}`);
