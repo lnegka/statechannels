@@ -61,6 +61,7 @@ import {DBAdmin} from '../db-admin/db-admin';
 import {Objective as ObjectiveModel} from '../models/objective';
 import {AppBytecode} from '../models/app-bytecode';
 import {Channel, CHANNEL_COLUMNS, RequiredColumns} from '../models/channel';
+import {BulkCreateAndLedgerFundManager} from '../objectives/bulk-create-and-ledger-fund/manager';
 
 import {Store, AppHandler, MissingAppHandler, ObjectiveStoredInDB, getSigningWallet} from './store';
 
@@ -84,28 +85,6 @@ type WalletEvent = {[key in WalletEventName]: SingleChannelOutput};
 
 const isSingleChannelMessage = (message: Message): message is SingleChannelOutput =>
   'channelResult' in message;
-
-// TODO put somewhere better
-function constructCreateLedgerChannelParams(
-  appChannelArgs: CreateChannelParams,
-  count: number
-): CreateChannelParams {
-  return {
-    ...appChannelArgs,
-    appDefinition: constants.AddressZero,
-    appData: '0x00',
-    fundingStrategy: 'Unfunded',
-    allocations: appChannelArgs.allocations.map(allocation => ({
-      token: allocation.token,
-      allocationItems: allocation.allocationItems.map(allocationItem => ({
-        destination: allocationItem.destination,
-        amount: BigNumber.from(allocationItem.amount)
-          .mul(count)
-          .toString(),
-      })),
-    })),
-  };
-}
 
 export interface UpdateChannelFundingParams {
   channelId: ChannelId;
@@ -376,77 +355,7 @@ export class Wallet extends EventEmitter<WalletEvent>
     appChannelArgs: CreateChannelParams,
     count: number
   ): Promise<{ledgerId: string; channelIds: string[]; outbox: Outgoing[]}> {
-    // TODO what if appChannelArgs.fundingStrategy != 'Ledger' or appDefinition !=0x00 ?
-    return await this.knex.transaction(async trx => {
-      const channelIds: string[] = [];
-      const signedStates: SignedState[] = [];
-      const outgoings: Outgoing[] = [];
-
-      const notMe = (_p: any, i: number): boolean => i !== myIndex;
-      const ledgerChannelArgs = constructCreateLedgerChannelParams(appChannelArgs, count);
-      const {
-        channelId: ledgerId,
-        signedState: ledgerSignedState,
-        myIndex,
-      } = await this.createChannelWithoutObjective(ledgerChannelArgs, trx);
-
-      const participants = appChannelArgs.participants;
-
-      signedStates.push(ledgerSignedState);
-      outgoings.push(
-        ...ledgerChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
-          method: 'MessageQueued' as const,
-          params: serializeMessage(
-            {signedStates: [ledgerSignedState]},
-            recipient,
-            participants[myIndex].participantId,
-            ledgerId
-          ),
-        }))
-      );
-
-      for (let i = 0; i < count; i++) {
-        const {channelId, signedState} = await this.createChannelWithoutObjective(
-          appChannelArgs,
-          trx
-        );
-        channelIds.push(channelId);
-        signedStates.push(signedState);
-        outgoings.push(
-          ...appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
-            method: 'MessageQueued' as const,
-            params: serializeMessage(
-              {signedStates: [signedState]},
-              recipient,
-              participants[myIndex].participantId,
-              channelId
-            ),
-          }))
-        );
-      }
-
-      const objective: ObjectiveType = {
-        type: 'BulkCreateAndLedgerFund',
-        data: {ledgerId, channelIds},
-        participants: [],
-      };
-
-      // Add the objective
-      outgoings.push(
-        ...appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
-          method: 'MessageQueued' as const,
-          params: serializeMessage(
-            {objectives: [objective]},
-            recipient,
-            participants[myIndex].participantId
-          ),
-        }))
-      );
-
-      await ObjectiveModel.insert({...objective, status: 'approved'}, trx);
-
-      return {ledgerId, channelIds, outbox: mergeOutgoing(outgoings)};
-    });
+    return await BulkCreateAndLedgerFundManager.attach(this.store).commence(appChannelArgs, count);
   }
 
   async createChannelInternal(
