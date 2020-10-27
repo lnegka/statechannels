@@ -42,7 +42,7 @@ afterAll(async () => {
   await b.dbAdmin().dropDB();
 });
 
-it('Creates 100 channels between 2 wallet and ledger funds them ', async () => {
+it(`Creates ${NUMBER_OF_CHANNELS} channels between 2 wallets and ledger funds them `, async () => {
   const allocation: Allocation = {
     allocationItems: [
       {
