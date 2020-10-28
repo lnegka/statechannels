@@ -519,10 +519,11 @@ export class Wallet extends EventEmitter<WalletEvent>
       };
     }
 
-    const {channelIds, objectives, channelResults: fromStoring} = await this.store.pushMessage(
-      wirePayload
-    );
-
+    const {
+      channelIds,
+      objectivesToApprove,
+      channelResults: fromStoring,
+    } = await this.store.pushMessage(wirePayload);
     const {channelResults, outbox} = await this.takeActions(channelIds);
 
     for (const channel of fromStoring) {
@@ -537,7 +538,7 @@ export class Wallet extends EventEmitter<WalletEvent>
     return {
       outbox: mergeOutgoing(outbox),
       channelResults: mergeChannelResults(channelResults),
-      objectivesToApprove: objectives,
+      objectivesToApprove,
     };
   }
 
@@ -556,6 +557,11 @@ export class Wallet extends EventEmitter<WalletEvent>
 
     while (objectives.length && !error) {
       const objective = objectives[0];
+
+      if (objective.type === 'BulkCreateAndLedgerFund') {
+        console.log('cranking...');
+        return await BulkCreateAndLedgerFundManager.attach(this.store).crank(objective.objectiveId);
+      }
 
       if (objective.type !== 'OpenChannel' && objective.type !== 'CloseChannel')
         throw new Error('not implememnted');
