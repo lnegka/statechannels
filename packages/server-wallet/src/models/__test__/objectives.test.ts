@@ -32,12 +32,13 @@ describe('Objective > insert', () => {
   });
 
   it('inserts and associates an objective with all channels that it references (channels exist)', async () => {
-    await Channel.query(knex)
-      .withGraphFetched('signingWallet')
-      .insert(c1);
-    await Channel.query(knex)
-      .withGraphFetched('signingWallet')
-      .insert(c2);
+    await Promise.all(
+      [l, c1, c2].map(c =>
+        Channel.query(knex)
+          .withGraphFetched('signingWallet')
+          .insert(c)
+      )
+    );
 
     await ObjectiveModel.insert({...objective, status: 'pending'}, knex);
 
@@ -46,6 +47,10 @@ describe('Objective > insert', () => {
     ]);
 
     expect(await ObjectiveChannelModel.query(knex).select()).toMatchObject([
+      {
+        objectiveId: `BulkCreateAndLedgerFund-${l.channelId}`,
+        channelId: l.channelId,
+      },
       {
         objectiveId: `BulkCreateAndLedgerFund-${l.channelId}`,
         channelId: c1.channelId,
@@ -60,12 +65,13 @@ describe('Objective > insert', () => {
 
 describe('Objective > forChannelIds', () => {
   it('retrieves objectives associated with a given channelId', async () => {
-    await Channel.query(knex)
-      .withGraphFetched('signingWallet')
-      .insert(c1);
-    await Channel.query(knex)
-      .withGraphFetched('signingWallet')
-      .insert(c2);
+    await Promise.all(
+      [l, c1, c2].map(c =>
+        Channel.query(knex)
+          .withGraphFetched('signingWallet')
+          .insert(c)
+      )
+    );
 
     await ObjectiveModel.insert({...objective, status: 'pending'}, knex);
 
