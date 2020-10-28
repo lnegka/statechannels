@@ -605,7 +605,8 @@ export class Store {
     await Funding.updateFunding(this.knex, channelId, fromAmount, assetHolderAddress);
   }
 
-  async nextNonce(signingAddresses: Address[], tx: TransactionOrKnex): Promise<number> {
+  async nextNonce(signingAddresses: Address[], tx?: TransactionOrKnex): Promise<number> {
+    tx = tx || this.knex;
     return await Nonce.next(tx, signingAddresses);
   }
 
