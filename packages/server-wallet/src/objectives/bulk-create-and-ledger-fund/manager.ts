@@ -5,15 +5,14 @@ import {
   SignedState,
   Objective as ObjectiveType,
   SimpleAllocation,
+  StateVariables,
 } from '@statechannels/wallet-core';
-import {Transaction, TransactionOrKnex} from 'objection';
+import {Transaction} from 'objection';
 
 import {Channel} from '../../models/channel';
 import {Funding} from '../../models/funding';
 import {DBObjective, ObjectiveModel} from '../../models/objective';
-import {channel} from '../../models/__test__/fixtures/channel';
 import {Outgoing} from '../../protocols/actions';
-import {toChannelResult} from '../../protocols/state';
 import {mergeOutgoing} from '../../utilities/messaging';
 import {MultipleChannelOutput} from '../../wallet';
 import {Store} from '../../wallet/store';
@@ -202,12 +201,11 @@ export class BulkCreateAndLedgerFundManager {
           ledgerChannel.totalAllocated,
           assetHolderAddress
         ); // TODO replace with deposit(ledgerChannel.myBalance) and await ledgerChannel.fullyFunded
-        const newState = {
+        const newStateVariables: StateVariables = {
           ...ledgerChannel.latest,
           turnNum: 2,
         };
-        await this.store.signState(ledgerChannel.channelId, newState, trx);
-        newStates.push(newState);
+        newStates.push(await this.store.signState(ledgerChannel.channelId, newStateVariables, trx));
       }
 
       if (ledgerChannel.hasFinishedSetup && !allApplicationsFunded) {
@@ -221,8 +219,7 @@ export class BulkCreateAndLedgerFundManager {
               applicationChannels
             ),
           };
-          await this.store.signState(ledgerChannel.channelId, newState, trx);
-          newStates.push(newState);
+          newStates.push(await this.store.signState(ledgerChannel.channelId, newState, trx));
         }
         if (
           !ledgerChannel.myTurn &&
