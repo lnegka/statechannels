@@ -373,7 +373,16 @@ export class Wallet extends EventEmitter<WalletEvent>
 
   async approveObjective(objectiveId: string): Promise<void> {
     return this.knex.transaction(async trx => {
-      await ObjectiveModel.approve(objectiveId, trx);
+      const objective = await ObjectiveModel.approve(objectiveId, trx);
+      switch (objective.type) {
+        case 'BulkCreateAndLedgerFund':
+          await BulkCreateAndLedgerFundManager.attach(this.store).approve(objective, trx);
+          break;
+        // todo: add other objective managers here
+        default:
+          // this is temporary, until we have other managers
+          ObjectiveModel.approve(objectiveId, trx);
+      }
     });
   }
   async updateChannel(args: UpdateChannelParams): Promise<SingleChannelOutput> {

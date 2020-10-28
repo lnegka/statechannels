@@ -6,10 +6,11 @@ import {
   Objective as ObjectiveType,
   SimpleAllocation,
 } from '@statechannels/wallet-core';
+import {TransactionOrKnex} from 'objection';
 
 import {Channel} from '../../models/channel';
 import {Funding} from '../../models/funding';
-import {Objective as ObjectiveModel} from '../../models/objective';
+import {ObjectiveModel} from '../../models/objective';
 import {Outgoing} from '../../protocols/actions';
 import {mergeOutgoing} from '../../utilities/messaging';
 import {Store} from '../../wallet/store';
@@ -103,6 +104,14 @@ export class BulkCreateAndLedgerFundManager {
 
       return {ledgerId, channelIds, outbox: mergeOutgoing(outgoings)};
     });
+  }
+
+  async approve(model: ObjectiveModel, tx: TransactionOrKnex): Promise<void> {
+    if (model.type !== 'BulkCreateAndLedgerFund') {
+      throw Error(`BulkCreateAndLedgerFundManager passed ${model.type} objective to approve`);
+    }
+    // mark objective as approved
+    await ObjectiveModel.approve(model.objectiveId, tx);
   }
 
   async crank(objectiveId: string): Promise<void> {
