@@ -10,7 +10,7 @@ import {TransactionOrKnex} from 'objection';
 
 import {Channel} from '../../models/channel';
 import {Funding} from '../../models/funding';
-import {ObjectiveModel} from '../../models/objective';
+import {DBObjective, ObjectiveModel} from '../../models/objective';
 import {Outgoing} from '../../protocols/actions';
 import {mergeOutgoing} from '../../utilities/messaging';
 import {Store} from '../../wallet/store';
@@ -106,12 +106,12 @@ export class BulkCreateAndLedgerFundManager {
     });
   }
 
-  async approve(model: ObjectiveModel, tx: TransactionOrKnex): Promise<void> {
-    if (model.type !== 'BulkCreateAndLedgerFund') {
-      throw Error(`BulkCreateAndLedgerFundManager passed ${model.type} objective to approve`);
+  async approve(objective: DBObjective, tx: TransactionOrKnex): Promise<void> {
+    if (objective.type !== 'BulkCreateAndLedgerFund') {
+      throw Error(`BulkCreateAndLedgerFundManager passed ${objective.type} objective to approve`);
     }
     // mark objective as approved
-    await ObjectiveModel.approve(model.objectiveId, tx);
+    await ObjectiveModel.approve(objective.objectiveId, tx);
   }
 
   async crank(objectiveId: string): Promise<void> {
