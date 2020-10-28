@@ -13,7 +13,7 @@ function extractReferencedChannels(objective: Objective): string[] {
     case 'CloseLedger':
       return [objective.data.ledgerId];
     case 'BulkCreateAndLedgerFund':
-      return objective.data.channelIds;
+      return [objective.data.ledgerId, ...objective.data.channelIds];
   }
 }
 
