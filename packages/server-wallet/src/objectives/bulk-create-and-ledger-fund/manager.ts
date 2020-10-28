@@ -1,4 +1,4 @@
-import {CreateChannelParams} from '@statechannels/client-api-schema';
+import {ChannelResult, CreateChannelParams} from '@statechannels/client-api-schema';
 import {
   Outcome,
   serializeMessage,
@@ -6,13 +6,16 @@ import {
   Objective as ObjectiveType,
   SimpleAllocation,
 } from '@statechannels/wallet-core';
-import {TransactionOrKnex} from 'objection';
+import {Transaction, TransactionOrKnex} from 'objection';
 
 import {Channel} from '../../models/channel';
 import {Funding} from '../../models/funding';
 import {DBObjective, ObjectiveModel} from '../../models/objective';
+import {channel} from '../../models/__test__/fixtures/channel';
 import {Outgoing} from '../../protocols/actions';
+import {toChannelResult} from '../../protocols/state';
 import {mergeOutgoing} from '../../utilities/messaging';
+import {MultipleChannelOutput} from '../../wallet';
 import {Store} from '../../wallet/store';
 
 import {constructCreateLedgerChannelParams, constructLedgerOutcome} from './helpers';
@@ -34,11 +37,10 @@ export class BulkCreateAndLedgerFundManager {
   ): Promise<{ledgerId: string; channelIds: string[]; outbox: Outgoing[]}> {
     return this.store.knex.transaction(async trx => {
       const channelIds: string[] = [];
-      const signedStates: SignedState[] = [];
       const outgoings: Outgoing[] = [];
 
       // LEDGER CHANNEL
-      const notMe = (_p: any, i: number): boolean => i !== myIndex;
+
       const ledgerChannelArgs = constructCreateLedgerChannelParams(appChannelArgs, count);
       const {
         channelId: ledgerId,
@@ -46,9 +48,9 @@ export class BulkCreateAndLedgerFundManager {
         myIndex,
       } = await this.store.createChannelWithoutObjective(ledgerChannelArgs, trx);
 
+      const notMe = (_p: any, i: number): boolean => i !== myIndex;
       const participants = appChannelArgs.participants;
 
-      signedStates.push(ledgerSignedState);
       outgoings.push(
         ...ledgerChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
           method: 'MessageQueued' as const,
@@ -68,7 +70,6 @@ export class BulkCreateAndLedgerFundManager {
           trx
         );
         channelIds.push(channelId);
-        signedStates.push(signedState);
         outgoings.push(
           ...appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
             method: 'MessageQueued' as const,
@@ -106,12 +107,64 @@ export class BulkCreateAndLedgerFundManager {
     });
   }
 
-  async approve(objective: DBObjective, tx: TransactionOrKnex): Promise<void> {
+  async approve(objective: DBObjective, tx: Transaction): Promise<MultipleChannelOutput> {
     if (objective.type !== 'BulkCreateAndLedgerFund') {
       throw Error(`BulkCreateAndLedgerFundManager passed ${objective.type} objective to approve`);
     }
-    // mark objective as approved
-    await ObjectiveModel.approve(objective.objectiveId, tx);
+
+    // sign state 1 in ledger and application channels
+    const ledgerChannel = await Channel.forId(objective.data.ledgerId, tx);
+    const applicationChannels = await Promise.all(
+      objective.data.channelIds.map(channelId => Channel.forId(channelId, tx))
+    );
+
+    const participants = ledgerChannel.participants;
+    const myIndex = 1; // TODO FIXME
+    const notMe = (_p: any, i: number): boolean => i !== myIndex;
+    const outgoings: Outgoing[] = [];
+    const channelResults: ChannelResult[] = []; // TODO populate these
+
+    // LEDGER CHANNEL
+    const newLedgerState = await this.store.signState(
+      ledgerChannel.channelId,
+      {...ledgerChannel.latest, turnNum: ledgerChannel.latest.turnNum + 1},
+      tx
+    );
+
+    outgoings.push(
+      ...participants.filter(notMe).map(({participantId: recipient}) => ({
+        method: 'MessageQueued' as const,
+        params: serializeMessage(
+          {signedStates: [newLedgerState]},
+          recipient,
+          participants[myIndex].participantId
+        ),
+      }))
+    );
+
+    // APPLICATION CHANNELS
+    const newApplicationStates = await Promise.all(
+      applicationChannels.map(async channel =>
+        this.store.signState(
+          channel.channelId,
+          {...channel.latest, turnNum: channel.latest.turnNum + 1},
+          tx
+        )
+      )
+    );
+
+    outgoings.push(
+      ...participants.filter(notMe).map(({participantId: recipient}) => ({
+        method: 'MessageQueued' as const,
+        params: serializeMessage(
+          {signedStates: newApplicationStates},
+          recipient,
+          participants[myIndex].participantId
+        ),
+      }))
+    );
+
+    return {channelResults, outbox: mergeOutgoing(outgoings)};
   }
 
   async crank(objectiveId: string): Promise<void> {

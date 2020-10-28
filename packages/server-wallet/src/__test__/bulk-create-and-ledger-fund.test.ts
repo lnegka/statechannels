@@ -9,7 +9,7 @@ import {getObjectiveToApprove, getPayloadFor} from './test-helpers';
 
 jest.setTimeout(10_000);
 
-const NUMBER_OF_CHANNELS = 10; // We want to do more than this, but may be constrained by the number of db connections and the test timeout
+const NUMBER_OF_APPLICATION_CHANNELS = 10; // We want to do more than this, but may be constrained by the number of db connections and the test timeout
 const a = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_A'});
 const b = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_B'});
 
@@ -42,7 +42,7 @@ afterAll(async () => {
   await b.dbAdmin().dropDB();
 });
 
-it(`Creates ${NUMBER_OF_CHANNELS} channels between 2 wallets and ledger funds them `, async () => {
+it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and ledger funds them `, async () => {
   const allocation: Allocation = {
     allocationItems: [
       {
@@ -65,11 +65,14 @@ it(`Creates ${NUMBER_OF_CHANNELS} channels between 2 wallets and ledger funds th
     fundingStrategy: 'Ledger',
   };
 
-  const resultA0 = await a.bulkCreateAndLedgerFund(createChannelParams, NUMBER_OF_CHANNELS);
+  const resultA0 = await a.bulkCreateAndLedgerFund(
+    createChannelParams,
+    NUMBER_OF_APPLICATION_CHANNELS
+  );
 
   expect(resultA0).toMatchObject({
     ledgerId: expect.stringMatching(/^0x/),
-    channelIds: Array(NUMBER_OF_CHANNELS).fill(expect.stringMatching(/^0x/)),
+    channelIds: Array(NUMBER_OF_APPLICATION_CHANNELS).fill(expect.stringMatching(/^0x/)),
   });
 
   // A sends to B, B pushes
@@ -78,7 +81,7 @@ it(`Creates ${NUMBER_OF_CHANNELS} channels between 2 wallets and ledger funds th
   );
 
   expect(bPushOutput).toMatchObject({
-    channelResults: Array(NUMBER_OF_CHANNELS + 1).fill(
+    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
       expect.objectContaining({status: 'proposed'})
     ),
   });
@@ -88,9 +91,19 @@ it(`Creates ${NUMBER_OF_CHANNELS} channels between 2 wallets and ledger funds th
   expect(objective.objectiveId).toEqual(expect.stringMatching(/^BulkCreateAndLedgerFund-0x/));
 
   expect((objective.data as any).channelIds).toMatchObject(
-    Array(NUMBER_OF_CHANNELS).fill(expect.stringMatching(/^0x/))
+    Array(NUMBER_OF_APPLICATION_CHANNELS).fill(expect.stringMatching(/^0x/))
   );
 
   // B approves
-  await b.approveObjective(objective.objectiveId);
+  const bApproveOutput = await b.approveObjective(objective.objectiveId);
+
+  const aPushOutput2 = await a.pushMessage(
+    getPayloadFor(participantA.participantId, bApproveOutput.outbox)
+  );
+
+  expect(aPushOutput2).toMatchObject({
+    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
+      expect.objectContaining({status: 'opening'})
+    ),
+  });
 });
