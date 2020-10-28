@@ -12,6 +12,7 @@ import {
 } from '@statechannels/wallet-core';
 import {JSONSchema, Model, Pojo, QueryContext, ModelOptions, TransactionOrKnex} from 'objection';
 import {ChannelResult, FundingStrategy} from '@statechannels/client-api-schema';
+import {BigNumber} from 'ethers';
 
 import {Address, Bytes32, Uint48} from '../type-aliases';
 import {ChannelState, toChannelResult, ChainServiceRequests} from '../protocols/state';
@@ -192,6 +193,43 @@ export class Channel extends Model implements RequiredColumns {
   // Computed
   get myIndex(): number {
     return this.participants.findIndex(p => p.signingAddress === this.signingAddress);
+  }
+
+  /**
+   * True if a preFundSetup state is supported. Agnostic to channel funding.
+   */
+  get isAtFundingPoint(): boolean {
+    return !!this.supported && this.supported?.turnNum < this.participants.length;
+  }
+
+  /**
+   * True if a postFundSetup state is supported. Agnostic to channel funding. Agnostic to isFinal property
+   */
+  get hasFinishedSetup(): boolean {
+    return !!this.supported && this.supported?.turnNum >= this.participants.length;
+  }
+
+  /**
+   * The total amount of funds that this channel allocates to other destinations. Assumes a SimpleAllocation (single asset type)
+   */
+  get totalAllocated(): string {
+    const outcome = this.latest.outcome;
+    if (outcome.type !== 'SimpleAllocation') throw Error('Unimplemented'); // TODO fix this
+    return outcome.allocationItems
+      .map(aI => BigNumber.from(aI.amount))
+      .reduce((p, c) => BigNumber.from(p).add(BigNumber.from(c)))
+      .toString();
+  }
+
+  /**
+   * True if there is a funding entry for this channel, for the correct assetHolder, whose amount >= the toal allocated by this channel
+   */
+  get isFullyFunded(): boolean {
+    const outcome = this.latest.outcome;
+    if (outcome.type !== 'SimpleAllocation') return false; // TODO fix this
+    const funding = this.funding.find(f => f.assetHolder === outcome.assetHolderAddress);
+    if (!funding) return false;
+    return BigNumber.from(funding.amount).gte(this.totalAllocated);
   }
 
   public get channelConstants(): ChannelConstants {
