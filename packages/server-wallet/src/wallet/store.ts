@@ -652,8 +652,8 @@ export class Store {
     await Funding.updateFunding(this.knex, channelId, fromAmount, assetHolderAddress);
   }
 
-  async nextNonce(signingAddresses: Address[]): Promise<number> {
-    return await Nonce.next(this.knex, signingAddresses);
+  async nextNonce(signingAddresses: Address[], tx: TransactionOrKnex): Promise<number> {
+    return await Nonce.next(tx, signingAddresses);
   }
 
   async createChannelWithoutObjective(
@@ -662,7 +662,10 @@ export class Store {
   ): Promise<{channelId: string; signedState: SignedState; myIndex: number}> {
     const {participants, appDefinition, appData, allocations} = params;
     const outcome: Outcome = deserializeAllocations(allocations);
-    const channelNonce = await this.nextNonce(params.participants.map(p => p.signingAddress));
+    const channelNonce = await this.nextNonce(
+      params.participants.map(p => p.signingAddress),
+      tx
+    );
     const constants: ChannelConstants = {
       channelNonce,
       participants: participants.map(convertToParticipant),
