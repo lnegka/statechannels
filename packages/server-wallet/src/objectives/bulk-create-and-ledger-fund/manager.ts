@@ -126,7 +126,7 @@ export class BulkCreateAndLedgerFundManager {
     // LEDGER CHANNEL
     const newLedgerState = await this.store.signState(
       ledgerChannel.channelId,
-      {...ledgerChannel.latest, turnNum: ledgerChannel.latest.turnNum + 1},
+      {...ledgerChannel.latest, turnNum: 1},
       tx
     );
 
@@ -182,6 +182,7 @@ export class BulkCreateAndLedgerFundManager {
 
       const participants = ledgerChannel.participants;
       const myIndex = participants.map(p => p.signingAddress).indexOf(ledgerChannel.myAddress);
+      console.log(`${this.store.knex.client.config.connection.database} myIndex: ${myIndex}`);
       const notMe = (_p: any, i: number): boolean => i !== myIndex;
 
       function ensureSimpleAllocation(outcome: Outcome): SimpleAllocation {
@@ -192,8 +193,12 @@ export class BulkCreateAndLedgerFundManager {
       const assetHolderAddress = ensureSimpleAllocation(ledgerChannel.latest.outcome)
         .assetHolderAddress;
 
-      if (!ledgerChannel.isFullyFunded && ledgerChannel.isAtFundingPoint) {
-        console.log('🟥 -> 🔴');
+      console.log(
+        `${this.store.knex.client.config.connection.database} supported: ${ledgerChannel.supported?.turnNum} ${ledgerChannel.supported?.signatures}`
+      );
+
+      if (!ledgerChannel.isFullyFunded) {
+        console.log(` ${this.store.knex.client.config.connection.database} 🟥 -> 🔴`);
         // 🟥 -> 🔴
         await Funding.updateFunding(
           trx,
@@ -203,13 +208,14 @@ export class BulkCreateAndLedgerFundManager {
         ); // TODO replace with deposit(ledgerChannel.myBalance) and await ledgerChannel.fullyFunded
         const newStateVariables: StateVariables = {
           ...ledgerChannel.latest,
-          turnNum: 2,
+          turnNum: 2 + myIndex,
         };
         newStates.push(await this.store.signState(ledgerChannel.channelId, newStateVariables, trx));
       }
 
       if (ledgerChannel.hasFinishedSetup && !allApplicationsFunded) {
         if (ledgerChannel.myTurn && applicationChannels.every(c => c.isAtFundingPoint)) {
+          console.log(`${this.store.knex.client.config.connection.database} 🔴 -> 🔵🔵🔵`);
           // 🔴 -> 🔵🔵🔵
           const newState = {
             ...ledgerChannel.latest,
@@ -218,6 +224,7 @@ export class BulkCreateAndLedgerFundManager {
               assetHolderAddress,
               applicationChannels
             ),
+            turnNum: ledgerChannel.latest.turnNum + 1,
           };
           newStates.push(await this.store.signState(ledgerChannel.channelId, newState, trx));
         }
@@ -227,7 +234,11 @@ export class BulkCreateAndLedgerFundManager {
           applicationChannels.every(c => c.isAtFundingPoint)
         ) {
           newStates.push(
-            await this.store.signState(ledgerChannel.channelId, ledgerChannel.latest, trx)
+            await this.store.signState(
+              ledgerChannel.channelId,
+              {...ledgerChannel.latest, turnNum: ledgerChannel.latest.turnNum + 1},
+              trx
+            )
           );
         }
       }
