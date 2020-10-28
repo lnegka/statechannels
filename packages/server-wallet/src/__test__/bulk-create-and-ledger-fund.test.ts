@@ -21,6 +21,8 @@ beforeAll(async () => {
   await b.dbAdmin().createDB();
   await Promise.all([a.dbAdmin().migrateDB(), b.dbAdmin().migrateDB()]);
 
+  console.log(await a.getSigningAddress());
+  console.log(await b.getSigningAddress());
   participantA = {
     signingAddress: await a.getSigningAddress(),
     participantId: 'a',
@@ -111,9 +113,8 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
     getPayloadFor(participantB.participantId, aPushOutput2.outbox)
   );
 
+  // Is the Ledger channel now running?
   expect(bPushOutput2).toMatchObject({
-    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
-      expect.objectContaining({status: 'funding'})
-    ),
+    channelResults: Array(1).fill(expect.objectContaining({status: 'running'})),
   });
 });
