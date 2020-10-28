@@ -124,6 +124,10 @@ export type CloseLedger = _Objective<
     ledgerId: Bytes32;
   }
 >;
+export type BulkCreateAndLedgerFund = _Objective<
+  'BulkCreateAndLedgerFund',
+  {ledgerId: string; channelIds: string[]}
+>;
 
 export type Objective =
   | OpenChannel
@@ -131,7 +135,8 @@ export type Objective =
   | VirtuallyFund
   | FundGuarantor
   | FundLedger
-  | CloseLedger;
+  | CloseLedger
+  | BulkCreateAndLedgerFund;
 
 const guard = <T extends Objective>(name: Objective['type']) => (o: Objective): o is T =>
   o.type === name;

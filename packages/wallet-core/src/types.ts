@@ -133,6 +133,10 @@ export type CloseLedger = _Objective<
     ledgerId: string;
   }
 >;
+export type BulkCreateAndLedgerFund = _Objective<
+  'BulkCreateAndLedgerFund',
+  {ledgerId: string; channelIds: string[]}
+>;
 
 export type Objective =
   | OpenChannel
@@ -140,7 +144,8 @@ export type Objective =
   | VirtuallyFund
   | FundGuarantor
   | FundLedger
-  | CloseLedger;
+  | CloseLedger
+  | BulkCreateAndLedgerFund;
 
 const guard = <T extends Objective>(name: Objective['type']) => (o: Objective): o is T =>
   o.type === name;
@@ -160,6 +165,7 @@ export function objectiveId(objective: Objective): string {
       return [objective.type, objective.data.guarantorId].join('-');
     case 'FundLedger':
     case 'CloseLedger':
+    case 'BulkCreateAndLedgerFund':
       return [objective.type, objective.data.ledgerId].join('-');
   }
 }
