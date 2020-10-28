@@ -10,8 +10,8 @@ import {getObjectiveToApprove, getPayloadFor} from './test-helpers';
 jest.setTimeout(10_000);
 
 const NUMBER_OF_APPLICATION_CHANNELS = 10; // We want to do more than this, but may be constrained by the number of db connections and the test timeout
-const a = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_A'});
-const b = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_B'});
+const a = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_A', skipEvmValidation: true});
+const b = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_B', skipEvmValidation: true});
 
 let participantA: Participant;
 let participantB: Participant;
@@ -20,9 +20,6 @@ beforeAll(async () => {
   await a.dbAdmin().createDB();
   await b.dbAdmin().createDB();
   await Promise.all([a.dbAdmin().migrateDB(), b.dbAdmin().migrateDB()]);
-
-  console.log(await a.getSigningAddress());
-  console.log(await b.getSigningAddress());
   participantA = {
     signingAddress: await a.getSigningAddress(),
     participantId: 'a',
@@ -67,6 +64,7 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
     fundingStrategy: 'Ledger',
   };
 
+  // A _commences_
   const resultA0 = await a.bulkCreateAndLedgerFund(
     createChannelParams,
     NUMBER_OF_APPLICATION_CHANNELS
@@ -77,7 +75,9 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
     channelIds: Array(NUMBER_OF_APPLICATION_CHANNELS).fill(expect.stringMatching(/^0x/)),
   });
 
-  // A sends to B, B pushes
+  const ledgerId = resultA0.ledgerId;
+
+  // B recieves objective from A and pushes
   const bPushOutput = await b.pushMessage(
     getPayloadFor(participantB.participantId, resultA0.outbox)
   );
@@ -96,25 +96,51 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
     Array(NUMBER_OF_APPLICATION_CHANNELS).fill(expect.stringMatching(/^0x/))
   );
 
-  // B approves
+  // B _approves_ and signs PreFund in L and in all the Cs
   const bApproveOutput = await b.approveObjective(objective.objectiveId);
 
+  expect(bApproveOutput).toMatchObject({
+    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
+      expect.objectContaining({status: 'opening'})
+    ),
+  });
+
+  // A recieves L.PreFund, _cranks_ -> updates their funding (fake) for L and sends L.PostFund2
   const aPushOutput2 = await a.pushMessage(
     getPayloadFor(participantA.participantId, bApproveOutput.outbox)
   );
-
   expect(aPushOutput2).toMatchObject({
     channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
       expect.objectContaining({status: 'opening'})
     ),
   });
 
+  console.log(getPayloadFor(participantB.participantId, aPushOutput2.outbox));
+  // B receives L.PostFund, _cranks_ -> signs their L.PostFund
   const bPushOutput2 = await b.pushMessage(
     getPayloadFor(participantB.participantId, aPushOutput2.outbox)
   );
 
-  // Is the Ledger channel now running?
+  // L is now running (funded, and postfund is complete)
   expect(bPushOutput2).toMatchObject({
-    channelResults: Array(1).fill(expect.objectContaining({status: 'running'})),
+    channelResults: Array(1).fill(
+      expect.objectContaining({channelId: ledgerId, status: 'running', turnNum: 2}) // TODO shouldn't this be 3?
+    ),
+  });
+
+  // A receives B's L.postfund, crafts an update to L that funds the Cs
+  const aPushOutput3 = await a.pushMessage(
+    getPayloadFor(participantA.participantId, bPushOutput2.outbox)
+  );
+
+  const bPushOutput3 = await b.pushMessage(
+    getPayloadFor(participantB.participantId, aPushOutput3.outbox)
+  );
+
+  // B countersigns upate to L
+  expect(bPushOutput3).toMatchObject({
+    channelResults: Array(1).fill(
+      expect.objectContaining({channelId: ledgerId, status: 'running', turnNum: 4}) // TODO shouldn't this be 5?
+    ),
   });
 });
