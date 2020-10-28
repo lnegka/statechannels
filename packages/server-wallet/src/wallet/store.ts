@@ -427,65 +427,18 @@ export class Store {
   }
 
   async addObjective(objective: Objective, tx: Transaction): Promise<DBObjective> {
-    if (isOpenChannel(objective)) {
-      const {
-        data: {targetChannelId: channelId, fundingStrategy},
-      } = objective;
-
-      // fetch the channel to make sure the channel exists
-      const channel = await Channel.forId(channelId, tx);
-      if (!channel) {
-        throw new StoreError(StoreError.reasons.channelMissing, {channelId});
-      }
-
-      if (!_.includes(['Direct', 'Unfunded', 'Ledger'], objective.data.fundingStrategy))
-        throw new StoreError(StoreError.reasons.unimplementedFundingStrategy, {fundingStrategy});
-
+    if (
+      objective.type == 'OpenChannel' ||
+      objective.type == 'CloseChannel' ||
+      objective.type == 'BulkCreateAndLedgerFund'
+    ) {
       const objectiveToBeStored: DBObjective = {
+        ...objective,
         objectiveId: objectiveId(objective),
-        participants: [],
         status: 'pending',
-        type: objective.type,
-        data: {
-          fundingStrategy,
-          targetChannelId: channelId,
-        },
-      };
-
-      // TODO: (Stored Objectives) Does it make sense to do the INSERT here?
-      await ObjectiveModel.insert(objectiveToBeStored, tx);
-
-      await Channel.query(tx)
-        .where({channelId: channel.channelId})
-        .patch({fundingStrategy})
-        .returning('*')
-        .first();
-
-      return objectiveToBeStored;
-    } else if (objective.type === 'CloseChannel') {
-      const {
-        data: {targetChannelId, fundingStrategy},
-      } = objective;
-      // fetch the channel to make sure the channel exists
-      const channel = await Channel.forId(targetChannelId, tx);
-      if (!channel) {
-        throw new StoreError(StoreError.reasons.channelMissing, {channelId: targetChannelId});
-      }
-
-      const objectiveToBeStored: DBObjective = {
-        objectiveId: objectiveId(objective),
-        status: 'approved', // TODO: (Stored Objectives) Awkward that it 'auto-approves'... :S
-        type: objective.type,
         participants: [],
-        data: {
-          targetChannelId,
-          fundingStrategy,
-        },
       };
-      // TODO: (Stored Objectives) Does it make sense to do the INSERT here?
-      await ObjectiveModel.insert(objectiveToBeStored, tx);
-
-      return objectiveToBeStored;
+      return await ObjectiveModel.insert(objectiveToBeStored, tx);
     } else {
       throw new StoreError(StoreError.reasons.unimplementedObjective);
     }

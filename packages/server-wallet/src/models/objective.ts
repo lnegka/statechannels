@@ -74,7 +74,7 @@ export class ObjectiveModel extends Model {
       status: 'pending' | 'approved' | 'rejected' | 'failed' | 'succeeded';
     },
     tx: TransactionOrKnex
-  ): Promise<ObjectiveModel> {
+  ): Promise<DBObjective> {
     const id: string = objectiveId(objectiveToBeStored);
 
     return tx.transaction(async trx => {
@@ -93,7 +93,7 @@ export class ObjectiveModel extends Model {
           ObjectiveChannelModel.query(trx).insert({objectiveId: id, channelId: value})
         )
       );
-      return objective;
+      return objective.toObjective();
     });
   }
 
