@@ -371,17 +371,16 @@ export class Wallet extends EventEmitter<WalletEvent>
     };
   }
 
-  async approveObjective(objectiveId: string): Promise<void> {
+  async approveObjective(objectiveId: string): Promise<MultipleChannelOutput> {
     return this.knex.transaction(async trx => {
       const objective = await ObjectiveModel.approve(objectiveId, trx);
       switch (objective.type) {
         case 'BulkCreateAndLedgerFund':
-          await BulkCreateAndLedgerFundManager.attach(this.store).approve(objective, trx);
-          break;
+          return BulkCreateAndLedgerFundManager.attach(this.store).approve(objective, trx);
         // todo: add other objective managers here
         default:
           // this is temporary, until we have other managers
-          ObjectiveModel.approve(objectiveId, trx);
+          return {channelResults: [], outbox: []};
       }
     });
   }
@@ -557,8 +556,6 @@ export class Wallet extends EventEmitter<WalletEvent>
 
     while (objectives.length && !error) {
       const objective = objectives[0];
-
-      if (objective == undefined) throw new Error('Got an undefined objective '); // TODO Don't want to do this but it's a bit tricky getting type inference with Array.filter
 
       if (objective.type !== 'OpenChannel' && objective.type !== 'CloseChannel')
         throw new Error('not implememnted');
