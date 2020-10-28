@@ -51,7 +51,8 @@ import {
   MockChainService,
 } from '../chain-service';
 import {DBAdmin} from '../db-admin/db-admin';
-import {DBObjective} from '../models/objective';
+import {DBObjective, ObjectiveModel} from '../models/objective';
+import {BulkCreateAndLedgerFundManager} from '../objectives/bulk-create-and-ledger-fund/manager';
 
 import {Store, AppHandler, MissingAppHandler} from './store';
 
@@ -290,6 +291,37 @@ export class Wallet extends EventEmitter<WalletEvent>
     };
   }
 
+  async bulkCreateAndLedgerFund(
+    appChannelArgs: CreateChannelParams,
+    count: number
+  ): Promise<{ledgerId: string; channelIds: string[]; outbox: Outgoing[]}> {
+    return await BulkCreateAndLedgerFundManager.attach(this.store).commence(appChannelArgs, count);
+  }
+
+  async createChannelInternal(
+    args: CreateChannelParams,
+    channelNonce: number
+  ): Promise<SingleChannelOutput> {
+    const {participants, appDefinition, appData, allocations, fundingStrategy} = args;
+    const outcome: Outcome = deserializeAllocations(allocations);
+
+    const constants: ChannelConstants = {
+      channelNonce,
+      participants: participants.map(convertToParticipant),
+      chainId: this.walletConfig.chainNetworkID,
+      challengeDuration: 9001,
+      appDefinition,
+    };
+
+    const {outgoing, channelResult} = await this.store.createChannel(
+      constants,
+      appData,
+      outcome,
+      fundingStrategy
+    );
+    return {outbox: mergeOutgoing(outgoing), channelResult};
+  }
+
   async joinChannels(channelIds: ChannelId[]): Promise<MultipleChannelOutput> {
     const objectives = await this.store.getObjectives(channelIds);
     await Promise.all(
@@ -339,6 +371,11 @@ export class Wallet extends EventEmitter<WalletEvent>
     };
   }
 
+  async approveObjective(objectiveId: string): Promise<void> {
+    return this.knex.transaction(async trx => {
+      await ObjectiveModel.approve(objectiveId, trx);
+    });
+  }
   async updateChannel(args: UpdateChannelParams): Promise<SingleChannelOutput> {
     if (this.walletConfig.workerThreadAmount > 0) {
       return this.manager.updateChannel(args);
