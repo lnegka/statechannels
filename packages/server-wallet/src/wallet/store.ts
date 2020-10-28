@@ -366,7 +366,7 @@ export class Store {
     message: WirePayload
   ): Promise<{
     channelIds: Bytes32[];
-    objectives: DBObjective[];
+    objectivesToApprove: DBObjective[];
     channelResults: ChannelResult[];
   }> {
     return this.knex.transaction(async tx => {
@@ -400,7 +400,7 @@ export class Store {
 
       return {
         channelIds: stateChannelIds.concat(objectiveChannelIds),
-        objectives: storedObjectives.filter(o => o.status === 'pending'),
+        objectivesToApprove: storedObjectives.filter(o => o.status === 'pending'),
         channelResults,
       };
     });
