@@ -547,19 +547,14 @@ export class Wallet extends EventEmitter<WalletEvent>
     const channelResults: ChannelResult[] = [];
     let error: Error | undefined = undefined;
 
-    // FIXME: Only get objectives which are:
-    // 1. Approved but not executed yet
-    // 2. Related to one of the channels
-
     const objectives = (await this.store.getObjectives(channels))
       .filter(x => x !== undefined)
       .filter(o => o?.status === 'approved');
 
     while (objectives.length && !error) {
       const objective = objectives[0];
-
       if (objective.type === 'BulkCreateAndLedgerFund') {
-        console.log('cranking...');
+        objectives.shift();
         return await BulkCreateAndLedgerFundManager.attach(this.store).crank(objective.objectiveId);
       }
 
