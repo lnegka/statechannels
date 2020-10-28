@@ -106,4 +106,14 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
       expect.objectContaining({status: 'opening'})
     ),
   });
+
+  const bPushOutput2 = await b.pushMessage(
+    getPayloadFor(participantB.participantId, aPushOutput2.outbox)
+  );
+
+  expect(bPushOutput2).toMatchObject({
+    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
+      expect.objectContaining({status: 'funding'})
+    ),
+  });
 });
