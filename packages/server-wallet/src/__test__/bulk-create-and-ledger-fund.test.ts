@@ -175,19 +175,27 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
     ),
   });
 
-  // // B receives C[].postFunds and responds with theirs
-  // const bPushOutput4 = await b.pushMessage(
-  //   getPayloadFor(participantB.participantId, aPushOutput4.outbox)
-  // );
+  // B receives C[].postFund2s and responds with theirs
+  const bPushOutput4 = await b.pushMessage(
+    getPayloadFor(participantB.participantId, aPushOutput4.outbox)
+  );
 
-  // // A gets B's C[].postFunds
-  // const aPushOutput5 = await a.pushMessage(
-  //   getPayloadFor(participantA.participantId, bPushOutput4.outbox)
-  // );
+  expect(bPushOutput4).toMatchObject({
+    channelResults: expect.arrayContaining(
+      Array(NUMBER_OF_APPLICATION_CHANNELS).fill(
+        expect.objectContaining({status: 'running', turnNum: 3})
+      )
+    ),
+  });
 
-  // expect(aPushOutput5).toMatchObject({
-  //   channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS).fill(
-  //     expect.objectContaining({status: 'running', turnNum: 5})
-  //   ),
-  // });
+  // A gets B's C[].postFunds
+  const aPushOutput5 = await a.pushMessage(
+    getPayloadFor(participantA.participantId, bPushOutput4.outbox)
+  );
+
+  expect(aPushOutput5).toMatchObject({
+    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS).fill(
+      expect.objectContaining({status: 'running', turnNum: 3})
+    ),
+  });
 });
