@@ -1,4 +1,4 @@
-import {BulkCreateAndLedgerFund, OpenChannel} from '@statechannels/wallet-core';
+import {BulkCreateAndLedgerFund} from '@statechannels/wallet-core';
 
 import {testKnex as knex} from '../../../jest/knex-setup-teardown';
 import {seedAlicesSigningWallet} from '../../db/seeds/1_signing_wallet_seeds';
