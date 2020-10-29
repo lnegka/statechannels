@@ -167,7 +167,7 @@ export class Store {
     channelId: Bytes32,
     vars: StateVariables,
     tx: Transaction // Insist on a transaction since addSignedState requires it
-  ): Promise<SignedState> {
+  ): Promise<{signedState: SignedState; channel: Channel}> {
     const timer = timerFactory(this.timingMetrics, `signState ${channelId}`);
 
     const channel = await timer('getting channel', async () => Channel.forId(channelId, tx));
@@ -197,9 +197,11 @@ export class Store {
       });
     }
 
-    await timer('adding MY state', async () => this.addMyState(channel, signedState, tx));
+    const newChannel = await timer('adding MY state', async () =>
+      this.addMyState(channel, signedState, tx)
+    );
 
-    return signedState;
+    return {signedState, channel: newChannel};
   }
 
   async addMyState(
@@ -547,7 +549,7 @@ export class Store {
         fundingStrategy,
         tx
       );
-      const signedState = await this.signState(
+      const {signedState} = await this.signState(
         channelId,
         {
           ...constants,
@@ -613,7 +615,7 @@ export class Store {
   async createChannelWithoutObjective(
     params: CreateChannelParams,
     tx: Transaction
-  ): Promise<{channelId: string; signedState: SignedState; myIndex: number}> {
+  ): Promise<{signedState: SignedState; channel: Channel}> {
     const {participants, appDefinition, appData, allocations} = params;
     const outcome: Outcome = deserializeAllocations(allocations);
     const channelNonce = await this.nextNonce(
@@ -649,14 +651,15 @@ export class Store {
       },
       ...CHANNEL_COLUMNS
     );
+
     const channel = Channel.fromJson(cols);
-    const {myIndex} = await Channel.query(tx)
+    await Channel.query(tx)
       .insert(channel)
       .returning('*')
       .first();
 
-    const signedState = await this.signState(channelId, stateVariables, tx);
-    return {channelId, signedState, myIndex};
+    const {signedState, channel: newChannel} = await this.signState(channelId, stateVariables, tx);
+    return {channel: newChannel, signedState};
   }
 }
 

@@ -15,6 +15,8 @@ const b = new Wallet({...defaultTestConfig, postgresDBName: 'TEST_B', skipEvmVal
 
 let participantA: Participant;
 let participantB: Participant;
+let allocation: Allocation;
+let createChannelParams: CreateChannelParams;
 
 beforeAll(async () => {
   await a.dbAdmin().createDB();
@@ -34,15 +36,7 @@ beforeAll(async () => {
       '0xbbbb000000000000000000000000000000000000000000000000000000000002'
     ),
   };
-});
-afterAll(async () => {
-  await Promise.all([a.destroy(), b.destroy()]);
-  await a.dbAdmin().dropDB();
-  await b.dbAdmin().dropDB();
-});
-
-it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and ledger funds them `, async () => {
-  const allocation: Allocation = {
+  allocation = {
     allocationItems: [
       {
         destination: participantA.destination,
@@ -56,15 +50,23 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
     token: '0x00', // must be even length
   };
 
-  const createChannelParams: CreateChannelParams = {
+  createChannelParams = {
     participants: [participantA, participantB],
     allocations: [allocation],
     appDefinition: ethers.constants.AddressZero,
     appData: '0x00', // must be even length
     fundingStrategy: 'Ledger',
   };
+});
 
-  // A _commences_
+afterAll(async () => {
+  await Promise.all([a.destroy(), b.destroy()]);
+  await a.dbAdmin().dropDB();
+  await b.dbAdmin().dropDB();
+});
+
+it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and ledger funds them `, async () => {
+  // A _commences_ and generates { objective, C[].PreFS0, L.PreFS0 }
   const resultA0 = await a.bulkCreateAndLedgerFund(
     createChannelParams,
     NUMBER_OF_APPLICATION_CHANNELS
@@ -73,20 +75,17 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
   expect(resultA0).toMatchObject({
     ledgerId: expect.stringMatching(/^0x/),
     channelIds: Array(NUMBER_OF_APPLICATION_CHANNELS).fill(expect.stringMatching(/^0x/)),
+    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
+      expect.objectContaining({turnNum: 0})
+    ),
   });
 
   const ledgerId = resultA0.ledgerId;
 
-  // B recieves objective from A and pushes
+  // B recieves { objective, C[].PreFS0, L.PreFS0 } from A and pushes
   const bPushOutput = await b.pushMessage(
     getPayloadFor(participantB.participantId, resultA0.outbox)
   );
-
-  expect(bPushOutput).toMatchObject({
-    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
-      expect.objectContaining({status: 'proposed'})
-    ),
-  });
 
   const objective = getObjectiveToApprove(bPushOutput);
   expect(objective.type).toEqual('BulkCreateAndLedgerFund');
@@ -96,15 +95,20 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
     Array(NUMBER_OF_APPLICATION_CHANNELS).fill(expect.stringMatching(/^0x/))
   );
 
-  // B _approves_ and signs PreFund in L and in all the Cs
+  expect(bPushOutput).toMatchObject({
+    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
+      expect.objectContaining({status: 'proposed', turnNum: 0})
+    ),
+  });
+
+  // B _approves_ and signs { L.PreFund1 and C[].PreFund1 }
   const bApproveOutput = await b.approveObjective(objective.objectiveId);
 
-  // TODO
-  // expect(bApproveOutput).toMatchObject({
-  //   channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
-  //     expect.objectContaining({status: 'opening'})
-  //   ),
-  // });
+  expect(bApproveOutput).toMatchObject({
+    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS + 1).fill(
+      expect.objectContaining({turnNum: 1})
+    ),
+  });
 
   // A recieves L.PreFund, _cranks_ -> updates their funding (fake) for L and sends L.PostFund2
   const aPushOutput2 = await a.pushMessage(
@@ -117,7 +121,6 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
     ),
   });
 
-  console.log(getPayloadFor(participantB.participantId, aPushOutput2.outbox));
   // B receives L.PostFund, _cranks_ -> signs their L.PostFund
   const bPushOutput2 = await b.pushMessage(
     getPayloadFor(participantB.participantId, aPushOutput2.outbox)
@@ -143,6 +146,34 @@ it(`Creates ${NUMBER_OF_APPLICATION_CHANNELS} channels between 2 wallets and led
   expect(bPushOutput3).toMatchObject({
     channelResults: Array(1).fill(
       expect.objectContaining({channelId: ledgerId, status: 'running', turnNum: 4}) // TODO shouldn't this be 5?
+    ),
+  });
+
+  // A receives B's countersignature, signs C[].postFund
+  const aPushOutput4 = await a.pushMessage(
+    getPayloadFor(participantA.participantId, bPushOutput3.outbox)
+  );
+
+  // TODO
+  // expect(aPushOutput4).toMatchObject({
+  //   channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS).fill(
+  //     expect.objectContaining({status: 'running', turnNum: 3})
+  //   ),
+  // });
+
+  // B receives C[].postFunds and responds with theirs
+  const bPushOutput4 = await b.pushMessage(
+    getPayloadFor(participantB.participantId, aPushOutput4.outbox)
+  );
+
+  // A gets B's C[].postFunds
+  const aPushOutput5 = await a.pushMessage(
+    getPayloadFor(participantA.participantId, bPushOutput4.outbox)
+  );
+
+  expect(aPushOutput5).toMatchObject({
+    channelResults: Array(NUMBER_OF_APPLICATION_CHANNELS).fill(
+      expect.objectContaining({status: 'running', turnNum: 5})
     ),
   });
 });

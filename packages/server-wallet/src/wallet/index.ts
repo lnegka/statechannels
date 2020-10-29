@@ -419,7 +419,7 @@ export class Wallet extends EventEmitter<WalletEvent>
           this.walletConfig.timingMetrics
         )
       );
-      const signedState = await timer('signing state', () =>
+      const {signedState} = await timer('signing state', () =>
         this.store.signState(channelId, nextState, tx)
       );
 
@@ -587,7 +587,7 @@ export class Wallet extends EventEmitter<WalletEvent>
           switch (action.type) {
             case 'SignState': {
               const {myIndex, participants, channelId} = app;
-              const signedState = await this.store.signState(action.channelId, action, tx);
+              const {signedState} = await this.store.signState(action.channelId, action, tx);
               createOutboxFor(channelId, myIndex, participants, {
                 signedStates: [signedState],
               }).map(outgoing => outbox.push(outgoing));

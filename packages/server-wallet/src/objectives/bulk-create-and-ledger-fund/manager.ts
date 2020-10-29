@@ -13,7 +13,7 @@ import {Channel} from '../../models/channel';
 import {Funding} from '../../models/funding';
 import {DBObjective, ObjectiveModel} from '../../models/objective';
 import {Outgoing} from '../../protocols/actions';
-import {mergeOutgoing} from '../../utilities/messaging';
+import {mergeChannelResults, mergeOutgoing} from '../../utilities/messaging';
 import {MultipleChannelOutput} from '../../wallet';
 import {Store} from '../../wallet/store';
 
@@ -33,18 +33,23 @@ export class BulkCreateAndLedgerFundManager {
   async commence(
     appChannelArgs: CreateChannelParams,
     count: number
-  ): Promise<{ledgerId: string; channelIds: string[]; outbox: Outgoing[]}> {
+  ): Promise<{
+    ledgerId: string;
+    channelIds: string[];
+    outbox: Outgoing[];
+    channelResults: ChannelResult[];
+  }> {
     return this.store.knex.transaction(async trx => {
       const channelIds: string[] = [];
       const outgoings: Outgoing[] = [];
+      const channelResults: ChannelResult[] = [];
 
       // LEDGER CHANNEL
 
       const ledgerChannelArgs = constructCreateLedgerChannelParams(appChannelArgs, count);
       const {
-        channelId: ledgerId,
+        channel: {channelId: ledgerId, myIndex, channelResult: ledgerChannelResult},
         signedState: ledgerSignedState,
-        myIndex,
       } = await this.store.createChannelWithoutObjective(ledgerChannelArgs, trx);
 
       const notMe = (_p: any, i: number): boolean => i !== myIndex;
@@ -62,12 +67,14 @@ export class BulkCreateAndLedgerFundManager {
         }))
       );
 
+      channelResults.push(ledgerChannelResult);
+
       // count APPLICATION CHANNELS
       for (let i = 0; i < count; i++) {
-        const {channelId, signedState} = await this.store.createChannelWithoutObjective(
-          appChannelArgs,
-          trx
-        );
+        const {
+          channel: {channelId, myIndex, channelResult},
+          signedState,
+        } = await this.store.createChannelWithoutObjective(appChannelArgs, trx);
         channelIds.push(channelId);
         outgoings.push(
           ...appChannelArgs.participants.filter(notMe).map(({participantId: recipient}) => ({
@@ -80,6 +87,7 @@ export class BulkCreateAndLedgerFundManager {
             ),
           }))
         );
+        channelResults.push(channelResult);
       }
 
       // OBJECTIVE
@@ -102,7 +110,7 @@ export class BulkCreateAndLedgerFundManager {
 
       await ObjectiveModel.insert({...objective, status: 'approved'}, trx);
 
-      return {ledgerId, channelIds, outbox: mergeOutgoing(outgoings)};
+      return {ledgerId, channelIds, outbox: mergeOutgoing(outgoings), channelResults};
     });
   }
 
@@ -124,11 +132,12 @@ export class BulkCreateAndLedgerFundManager {
     const channelResults: ChannelResult[] = []; // TODO populate these
 
     // LEDGER CHANNEL
-    const newLedgerState = await this.store.signState(
+    const {signedState: newLedgerState, channel} = await this.store.signState(
       ledgerChannel.channelId,
       {...ledgerChannel.latest, turnNum: 1},
       tx
     );
+    channelResults.push(channel.channelResult);
 
     outgoings.push(
       ...participants.filter(notMe).map(({participantId: recipient}) => ({
@@ -142,7 +151,7 @@ export class BulkCreateAndLedgerFundManager {
     );
 
     // APPLICATION CHANNELS
-    const newApplicationStates = await Promise.all(
+    const newApplicationStatesAndChannels = await Promise.all(
       applicationChannels.map(async channel =>
         this.store.signState(
           channel.channelId,
@@ -152,11 +161,13 @@ export class BulkCreateAndLedgerFundManager {
       )
     );
 
+    channelResults.push(...newApplicationStatesAndChannels.map(o => o.channel.channelResult));
+
     outgoings.push(
       ...participants.filter(notMe).map(({participantId: recipient}) => ({
         method: 'MessageQueued' as const,
         params: serializeMessage(
-          {signedStates: newApplicationStates},
+          {signedStates: newApplicationStatesAndChannels.map(o => o.signedState)},
           recipient,
           participants[myIndex].participantId
         ),
@@ -169,6 +180,7 @@ export class BulkCreateAndLedgerFundManager {
   async crank(objectiveId: string): Promise<MultipleChannelOutput> {
     return this.store.knex.transaction(async trx => {
       const newStates: SignedState[] = [];
+      const channelResults: ChannelResult[] = [];
 
       // GET data
       const objective = await ObjectiveModel.forId(objectiveId, trx);
@@ -210,7 +222,10 @@ export class BulkCreateAndLedgerFundManager {
           ...ledgerChannel.latest,
           turnNum: 2 + myIndex,
         };
-        newStates.push(await this.store.signState(ledgerChannel.channelId, newStateVariables, trx));
+        newStates.push(
+          (await this.store.signState(ledgerChannel.channelId, newStateVariables, trx)).signedState
+        );
+        channelResults.push(ledgerChannel.channelResult);
       }
 
       if (ledgerChannel.hasFinishedSetup && !allApplicationsFunded) {
@@ -226,7 +241,10 @@ export class BulkCreateAndLedgerFundManager {
             ),
             turnNum: ledgerChannel.latest.turnNum + 1,
           };
-          newStates.push(await this.store.signState(ledgerChannel.channelId, newState, trx));
+          newStates.push(
+            await (await this.store.signState(ledgerChannel.channelId, newState, trx)).signedState
+          );
+          channelResults.push((await Channel.forId(objective.data.ledgerId, trx)).channelResult);
         }
         if (
           !ledgerChannel.myTurn &&
@@ -234,12 +252,15 @@ export class BulkCreateAndLedgerFundManager {
           applicationChannels.every(c => c.isAtFundingPoint)
         ) {
           newStates.push(
-            await this.store.signState(
-              ledgerChannel.channelId,
-              {...ledgerChannel.latest, turnNum: ledgerChannel.latest.turnNum + 1},
-              trx
-            )
+            (
+              await this.store.signState(
+                ledgerChannel.channelId,
+                {...ledgerChannel.latest, turnNum: ledgerChannel.latest.turnNum + 1},
+                trx
+              )
+            ).signedState
           );
+          channelResults.push((await Channel.forId(objective.data.ledgerId, trx)).channelResult);
         }
       }
 
@@ -247,7 +268,8 @@ export class BulkCreateAndLedgerFundManager {
         const allApplicationChannelsRunning: boolean = applicationChannels
           .map<Promise<boolean>>(async c => {
             if (!c.hasFinishedSetup && c.myTurn) {
-              newStates.push(await this.store.signState(c.channelId, c.latest, trx));
+              newStates.push((await this.store.signState(c.channelId, c.latest, trx)).signedState);
+              channelResults.push((await Channel.forId(c.channelId, trx)).channelResult);
             }
             return c.hasFinishedSetup;
           })
@@ -266,7 +288,7 @@ export class BulkCreateAndLedgerFundManager {
         })),
       ];
       return {
-        channelResults: [], // TODO populate these
+        channelResults: mergeChannelResults(channelResults),
         outbox: mergeOutgoing(outgoings),
       };
     });
