@@ -193,7 +193,6 @@ export class BulkCreateAndLedgerFundManager {
 
       const participants = ledgerChannel.participants;
       const myIndex = participants.map(p => p.signingAddress).indexOf(ledgerChannel.myAddress);
-      console.log(`${this.store.knex.client.config.connection.database} myIndex: ${myIndex}`);
       const notMe = (_p: any, i: number): boolean => i !== myIndex;
 
       function ensureSimpleAllocation(outcome: Outcome): SimpleAllocation {
@@ -203,13 +202,6 @@ export class BulkCreateAndLedgerFundManager {
 
       const assetHolderAddress = ensureSimpleAllocation(ledgerChannel.latest.outcome)
         .assetHolderAddress;
-
-      console.log(
-        `${this.store.knex.client.config.connection.database} supported: ${ledgerChannel.supported?.turnNum} ${ledgerChannel.supported?.signatures}`
-      );
-      console.log(
-        `${this.store.knex.client.config.connection.database} latestSignedByMe: ${ledgerChannel.latestSignedByMe?.turnNum}`
-      );
 
       if (!ledgerChannel.isFullyDirectlyFunded && ledgerChannel.hasPreFundSetup) {
         console.log(` ${this.store.knex.client.config.connection.database} 🟥 -> 🔴`);
