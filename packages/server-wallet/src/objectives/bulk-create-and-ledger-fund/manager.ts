@@ -187,10 +187,9 @@ export class BulkCreateAndLedgerFundManager {
       if (objective.type !== 'BulkCreateAndLedgerFund') throw Error;
 
       let ledgerChannel = await Channel.forId(objective.data.ledgerId, trx);
-      const applicationChannels = await Promise.all(
-        objective.data.channelIds.map(channelId => Channel.forId(channelId, trx))
+      let applicationChannels = await Promise.all(
+        objective.data.channelIds.map(async channelId => Channel.forId(channelId, trx))
       );
-      const allApplicationsFunded = applicationChannels.every(c => c.isFullyFunded);
 
       const participants = ledgerChannel.participants;
       const myIndex = participants.map(p => p.signingAddress).indexOf(ledgerChannel.myAddress);
@@ -212,7 +211,7 @@ export class BulkCreateAndLedgerFundManager {
         `${this.store.knex.client.config.connection.database} latestSignedByMe: ${ledgerChannel.latestSignedByMe?.turnNum}`
       );
 
-      if (!ledgerChannel.isFullyFunded && ledgerChannel.hasPreFundSetup) {
+      if (!ledgerChannel.isFullyDirectlyFunded && ledgerChannel.hasPreFundSetup) {
         console.log(` ${this.store.knex.client.config.connection.database} 🟥 -> 🔴`);
         // 🟥 -> 🔴
         await Funding.updateFunding(
@@ -224,7 +223,11 @@ export class BulkCreateAndLedgerFundManager {
         ledgerChannel = await Channel.forId(objective.data.ledgerId, trx); // Refresh this since we changed the funding
       }
 
-      if (ledgerChannel.isFullyFunded && !ledgerChannel.hasFinishedSetup && ledgerChannel.myTurn) {
+      if (
+        ledgerChannel.isFullyDirectlyFunded &&
+        !ledgerChannel.hasFinishedSetup &&
+        ledgerChannel.myTurn
+      ) {
         const newStateVariables: StateVariables = {
           ...ledgerChannel.latest,
           turnNum: 2 + myIndex,
@@ -242,7 +245,11 @@ export class BulkCreateAndLedgerFundManager {
         channelResults.push(newLedgerChannel.channelResult);
       }
 
-      if (ledgerChannel.hasFinishedSetup && !allApplicationsFunded) {
+      if (
+        ledgerChannel.hasFinishedSetup &&
+        ledgerChannel.latestSignedByMe?.turnNum &&
+        ledgerChannel.latestSignedByMe.turnNum < 4
+      ) {
         if (ledgerChannel.myTurn && applicationChannels.every(c => c.isAtFundingPoint)) {
           console.log(`${this.store.knex.client.config.connection.database} 🔴 -> 🔵🔵🔵`);
           // 🔴 -> 🔵🔵🔵
@@ -264,37 +271,35 @@ export class BulkCreateAndLedgerFundManager {
           newStates.push(signedState);
           channelResults.push(newLedgerChannel.channelResult);
         }
-
-        if (
-          !ledgerChannel.myTurn &&
-          allApplicationsFunded &&
-          applicationChannels.every(c => c.isAtFundingPoint)
-        ) {
-          const {signedState, channel: newLedgerChannel} = await this.store.signState(
-            ledgerChannel.channelId,
-            {...ledgerChannel.latest, turnNum: ledgerChannel.latest.turnNum + 1},
-            trx
-          );
-          newStates.push(signedState);
-          channelResults.push(newLedgerChannel.channelResult);
-        }
       }
 
-      if (ledgerChannel.hasFinishedSetup && allApplicationsFunded) {
-        const allApplicationChannelsRunning: boolean = applicationChannels
-          .map<Promise<boolean>>(async c => {
+      if (ledgerChannel.supported?.turnNum === 4) {
+        console.log(
+          ` ${this.store.knex.client.config.connection.database} Finish setup in the application channels...`
+        );
+
+        await Promise.all(
+          applicationChannels.map(async c => {
             if (!c.hasFinishedSetup && c.myTurn) {
               const {signedState, channel: newChannel} = await this.store.signState(
                 c.channelId,
-                c.latest,
+                {...c.latest, turnNum: myIndex + 2},
                 trx
               );
               newStates.push(signedState);
               channelResults.push(newChannel.channelResult);
             }
-            return c.hasFinishedSetup;
           })
-          .every(x => !!x);
+        );
+
+        applicationChannels = await Promise.all(
+          objective.data.channelIds.map(async channelId => Channel.forId(channelId, trx))
+        ); // refresh applicationChannels
+
+        const allApplicationChannelsRunning: boolean = applicationChannels.every(
+          c => c.hasFinishedSetup
+        );
+
         if (allApplicationChannelsRunning) await ObjectiveModel.succeed(objectiveId, trx);
       }
 

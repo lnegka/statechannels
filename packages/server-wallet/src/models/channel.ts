@@ -231,12 +231,12 @@ export class Channel extends Model implements RequiredColumns {
   /**
    * True if there is a funding entry for this channel, for the correct assetHolder, whose amount >= the toal allocated by this channel
    */
-  get isFullyFunded(): boolean {
+  get isFullyDirectlyFunded(): boolean {
     const outcome = this.latest.outcome;
     if (outcome.type !== 'SimpleAllocation') return false; // TODO fix this
     const funding = this.funding.find(f => f.assetHolder === outcome.assetHolderAddress);
     if (!funding) return false;
-    return BigNumber.from(funding.amount).gte(this.totalAllocated);
+    return BigNumber.from(funding.amount).gte(BigNumber.from(this.totalAllocated));
   }
 
   public get channelConstants(): ChannelConstants {
