@@ -196,17 +196,24 @@ export class Channel extends Model implements RequiredColumns {
   }
 
   /**
-   * True if the final preFundSetup state is supported. Agnostic to channel funding.
+   * True if the supported state is the final preFundSetup state. Agnostic to channel funding.
    */
   get isAtFundingPoint(): boolean {
     return !!this.supported && this.supported?.turnNum == this.participants.length - 1;
   }
 
   /**
-   * True if the final postFundSetup state is supported. Agnostic to channel funding. Agnostic to isFinal property
+   * True if the supported state is later than or equal to the final preFundSetup
+   */
+  get hasPreFundSetup(): boolean {
+    return !!this.supported && this.supported?.turnNum >= this.participants.length - 1;
+  }
+
+  /**
+   * True if the supported state is later than or equal to the final postFundSetup state.
    */
   get hasFinishedSetup(): boolean {
-    return !!this.supported && this.supported?.turnNum == 2 * this.participants.length - 1;
+    return !!this.supported && this.supported?.turnNum >= 2 * this.participants.length - 1;
   }
 
   /**
