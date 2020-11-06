@@ -186,7 +186,7 @@ export type ChannelStoredData = {
 
 export interface SignatureEntry {
   signature: string;
-  signer: string;
+  signer: Address;
 }
 
 interface DirectFunding {
