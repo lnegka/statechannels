@@ -15,7 +15,7 @@ export function getStateSignerAddress(signedState: SignedState): string {
   const {channel} = signedState.state;
   const {participants} = channel;
 
-  if (participants.map(p => p.toLowerCase()).indexOf(recoveredAddress.toLowerCase()) < 0) {
+  if (participants.indexOf(recoveredAddress.toLowerCase()) < 0) {
     throw new Error(
       `Recovered address ${recoveredAddress} is not a participant in channel ${getChannelId(
         channel
