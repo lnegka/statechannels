@@ -594,7 +594,7 @@ module.exports = function(webpackEnv) {
       isEnvProduction &&
         new WorkboxWebpackPlugin.GenerateSW({
           clientsClaim: true,
-          maximumFileSizeToCacheInBytes: 8000000,
+          maximumFileSizeToCacheInBytes: 10_000_000,
           exclude: [/\.map$/, /asset-manifest\.json$/],
           navigateFallback: publicUrl + '/index.html',
           navigateFallbackDenylist: [
