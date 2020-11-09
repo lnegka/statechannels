@@ -1,10 +1,10 @@
-import {BN, checkThat, isSimpleAllocation, State} from '@statechannels/wallet-core';
+import {BN, checkThat, isSimpleAllocation} from '@statechannels/wallet-core';
 import {Transaction} from 'knex';
 
 import {Store} from '../wallet/store';
 import {Bytes32} from '../type-aliases';
 
-import {Protocol, ProtocolResult, ChannelState, stage, Stage} from './state';
+import {Protocol, ProtocolResult, ChannelState} from './state';
 import {
   completeObjective,
   Withdraw,
@@ -23,13 +23,8 @@ export type ProtocolState = {
   ledgerChannelId?: Bytes32;
 };
 
-const stageGuard = (guardStage: Stage) => (s: State | undefined): s is State =>
-  !!s && stage(s) === guardStage;
-
-const isFinal = stageGuard('Final');
-
 function everyoneSignedFinalState(ps: ProtocolState): boolean {
-  return (ps.app.support || []).every(isFinal) && isFinal(ps.app.latestSignedByMe);
+  return (ps.app.support || []).every(s => s.isFinal);
 }
 
 // todo: where is the corresponding logic for ledger channels?
@@ -56,11 +51,11 @@ function successfulWithdraw({app}: ProtocolState): boolean {
 
 const signFinalState = (ps: ProtocolState): ProtocolResult | false =>
   !!ps.app.supported &&
-  !isFinal(ps.app.latestSignedByMe) &&
+  !ps.app.latestSignedByMe?.isFinal &&
   signState({
     channelId: ps.app.channelId,
     ...ps.app.supported,
-    turnNum: ps.app.supported.turnNum + (isFinal(ps.app.supported) ? 0 : 1),
+    turnNum: ps.app.supported.turnNum + (ps.app.supported.isFinal ? 0 : 1),
     isFinal: true,
   });
 
