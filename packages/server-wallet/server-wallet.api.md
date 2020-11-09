@@ -55,7 +55,6 @@ export type Outgoing = Notice;
 export type SingleChannelOutput = {
     outbox: Outgoing[];
     channelResult: ChannelResult;
-    objectivesToApprove?: Omit<DBObjective, 'status'>[];
 };
 
 // Warning: (ae-forgotten-export) The symbol "EventEmitterType" needs to be exported by the entry point index.d.ts
