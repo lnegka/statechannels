@@ -14,6 +14,7 @@ import {
   deserializeOutcome,
   convertToInternalParticipant,
   isOpenChannel,
+  isCloseChannel,
   SignedState,
   objectiveId,
   isSimpleAllocation,
@@ -300,13 +301,9 @@ export class Store {
         storedObjectives.push(await this.addObjective(o, tx));
       }
 
-      function isDefined(s: string | undefined): s is string {
-        return s !== undefined;
-      }
-      const objectiveChannelIds =
-        storedObjectives
-          .map(objective => (isOpenChannel(objective) ? objective.data.targetChannelId : undefined))
-          .filter(isDefined) || [];
+      const objectiveChannelIds = storedObjectives
+        .filter(objective => isOpenChannel(objective) || isCloseChannel(objective))
+        .map(objective => objective.data.targetChannelId);
 
       return {
         channelIds: stateChannelIds.concat(objectiveChannelIds),
